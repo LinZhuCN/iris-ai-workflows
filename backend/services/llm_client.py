@@ -533,7 +533,8 @@ def recommend_pipeline(mappings: list[dict], source_type: str, target_type: str,
                        existing_pipelines: list[dict] | None = None,
                        bp_compile_feedback: str | None = None,
                        bp_patch_mode: bool = False,
-                       bp_plan_mode: bool = False) -> dict:
+                       bp_plan_mode: bool = False,
+                       pipeline_repair_context: dict | None = None) -> dict:
     """数据管道设计 Agent（规划师）：选 Skill + 生成组件拓扑。
 
     `bp_plan_mode=True`（2026-09-19 Plan 层）：**只出拓扑**——明确要求**不要输出整份
@@ -565,6 +566,7 @@ def recommend_pipeline(mappings: list[dict], source_type: str, target_type: str,
             "bp_patch_request": bool(bp_patch_mode),
             # Plan 层：本次**不要**输出整份 BP 源码（平台按计划逐方法生成）——避免 34.5k completion 大调用
             "bp_plan_request": bool(bp_plan_mode),
+            "pipeline_repair_context": pipeline_repair_context,
         }, ensure_ascii=False, indent=2)
     prompt = SYSTEM_PROMPT_PIPELINE
     if bp_plan_mode:
@@ -572,6 +574,18 @@ def recommend_pipeline(mappings: list[dict], source_type: str, target_type: str,
                   + "【本次特别要求（Plan 层）】只输出 design_skill 与 pipeline.components；"
                   "**不要**输出 generated_bp / method_updates 源码——平台会先用计划（方法编排）"
                   "再逐个方法生成聚合 BP。输出 JSON 里不要包含 generated_bp 字段。")
+    if pipeline_repair_context is not None:
+        prompt += (
+            "【C2 单轮拓扑修复，优先于上面的正常生成要求】当前不是新建管道，不重新选型，"
+            "不执行任何生成 BP 的要求。pipeline_repair_context.current_components 是待修组的"
+            "完整组件集合；共享组件不在集合中，已经由平台管理，禁止补入 JavaGateway 等组件。"
+            "返回 pipeline.components，必须逐个保留当前 name/type/category/enabled 和设置名。"
+            "必须输出 className，不能因为正常生成会参数化而省略；依据 available_components "
+            "中的注册 className 与故障证据纠正错误类名。"
+            "只允许修改 className 或源 BS 的 Host.TargetConfigNames（指向本组既有 BP）。"
+            "其他设置原样保留，包括 [HIDDEN]/[REDACTED] 占位符。"
+            "禁止新增/删除/重命名组件、修改查询/连接/凭据/设计 Skill。"
+            "不能修复则返回原组件与 explanation；不得用无变更结果冒充修复成功。")
     result = _call_llm(prompt, user_content, "数据管道设计Agent")
     pipeline = result.get("pipeline")
     if not isinstance(pipeline, dict):

@@ -19,6 +19,7 @@
 用法（容器内）：docker exec -i dataflow-backend python - < tools/test_fhir_schema_facts.py
 """
 import os
+import re
 import sys
 
 PASS = 0
@@ -193,8 +194,12 @@ pipe = ((_src("backend/routes/pipelines.py") or "")
 tv = _src("backend/services/transformation_validator.py") or ""
 
 check_file("iris/src/demo/TransformProcess.cls",
-           lambda t: "system_from_row" in t and 'pSrc.%Get("CodeSystem")' not in t,
-           "D1 引擎用 schema 声明的 system_from_row，且**不再**硬编码取源行 CodeSystem")
+           lambda t: "system_from_row" in t
+           and 'pCol.%Get("coded", "?")' in t
+           and len(re.findall(r'pSrc\.%Get\("CodeSystem"\)', t)) == 1
+           and bool(re.search(
+               r'ElseIf \(tHasFact = 0\) \{\s*Set tUseSys = pSrc\.%Get\("CodeSystem"\)\s*\}', t)),
+           "D1 新 schema 用 system_from_row；CodeSystem 兜底仅保留给无 coded 事实的旧 schema")
 check_file("iris/src/demo/TransformProcess.cls", lambda t: "tFromRow" in t,
            "D2 引擎实现里 tFromRow 变量在位")
 check('source_id=next((_g.get("source_id")' in pipe

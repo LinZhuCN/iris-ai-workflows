@@ -290,10 +290,42 @@ ClassMethod ResetSyncCursor() As %String
 ///   {"ok":true} 或 {"ok":false,"message":"错误详情"}
 ClassMethod CheckCompile() As %String
 {
+    // Production 编译会导入 XData 默认启停值；事实检查不得覆盖许可调度后的当前配置。
+    Set tProd = ##class(Ens.Config.Production).%OpenId("demo.DataflowProduction")
+    If $IsObject(tProd) {
+        For i = 1:1:tProd.Items.Count() {
+            Set tItem = tProd.Items.GetAt(i)
+            If $IsObject(tItem) Set tEnabled(tItem.Name) = +tItem.Enabled
+        }
+    }
+    Set tProd = "", tItem = ""
     Set tSC = $system.OBJ.Compile("demo.DataflowProduction", "-d")
     Set tObj = {"ok":($$$ISOK(tSC))}
     If '$$$ISOK(tSC) {
         Do tObj.%Set("message", $system.Status.GetErrorText(tSC))
+    }
+    If $Data(tEnabled) {
+        Set tProd = ##class(Ens.Config.Production).%OpenId("demo.DataflowProduction")
+        If '$IsObject(tProd) {
+            Do tObj.%Set("ok", 0)
+            Do tObj.%Set("message", tObj.%Get("message", "") _ " Compilation removed the Production configuration")
+        } Else {
+            Set tChanged = 0
+            For i = 1:1:tProd.Items.Count() {
+                Set tItem = tProd.Items.GetAt(i)
+                Continue:'$IsObject(tItem)
+                If $Data(tEnabled(tItem.Name)), +tItem.Enabled '= tEnabled(tItem.Name) {
+                    Set tItem.Enabled = tEnabled(tItem.Name), tChanged = 1
+                }
+            }
+            If tChanged {
+                Set tRestoreSC = tProd.%Save()
+                If $$$ISERR(tRestoreSC) {
+                    Do tObj.%Set("ok", 0)
+                    Do tObj.%Set("message", tObj.%Get("message", "") _ " Failed to restore enabled states: " _ $system.Status.GetErrorText(tRestoreSC))
+                }
+            }
+        }
     }
     Quit tObj.%ToJSON()
 }

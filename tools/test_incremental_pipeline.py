@@ -20,6 +20,7 @@
 用法（容器内）：docker exec -i dataflow-backend python - < tools/test_incremental_pipeline.py
 """
 import copy
+import ast
 import os
 import sys
 
@@ -249,7 +250,9 @@ check(_patched.get("source_id") == "DS1",
 check(len(_patched.get("field_mappings") or []) == 2, "F4 修正内容确实生效（字段数 2）")
 _pl_text = ((_src("backend/routes/pipelines.py") or "")
             + (_src("backend/services/pipeline_generate.py") or ""))
-check(_pl_text.count("write_mapping_patch(_m)") >= 3
+check(sum(isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+          and n.func.id in ("write_mapping_patch", "_write_mapping_patch")
+          for n in ast.walk(ast.parse(_pl_text))) >= 3
       and 'set_json("^demo.Mapping", _m["id"]' not in _pl_text,
       "F5 所有映射写回点都走合并写（Step 4 后在 pipeline_generate.py，无整条覆盖）")
 check("extra=\"allow\"" in (_src("backend/schemas/models.py") or ""),
@@ -285,6 +288,19 @@ check(joined and joined[0].get("ai_components") and joined[0].get("mappings"),
       "G2 并入组带存储组件定义 + 已登记映射（可整份渲染而不丢别的管道）")
 joined2 = PL._auto_join_existing_pipelines([], {"PIPE_DS9_TG9"})
 check(not joined2, "G3 已提交的组不重复并入（按业务身份去重）")
+_original_target = repo.get_target
+repo.get_target = lambda i: {
+    "id": i, "type": "SOAP", "connection": {"service": "PatientService",
+                                           "endpoint": "http://mock", "bo_class": "demo.soap.BO"},
+    "runtime": {"connection": {"service": "PatientService", "endpoint": "http://mock"}},
+}
+try:
+    _soap_config = PL._configs_for_identity("DS9", "TG9")[1]
+    check(_soap_config["service"] == "PatientService"
+          and _soap_config["bo_class"] == "demo.soap.BO",
+          "G3b 自动并入 SOAP 组从归一运行契约/connection 恢复服务名，不退化为 default")
+finally:
+    repo.get_target = _original_target
 _rec9 = STORE["PIPE_DS9_TG9"]
 _rec9["signature"] = "过了期的签名"
 joined3 = PL._auto_join_existing_pipelines([], set())
@@ -350,6 +366,28 @@ _tcn = next((str(s.get("value")) for s in (_bs.get("settings") or [])
              if str(s.get("name")) == "TargetConfigNames"), "")
 check(_tcn == "TransformProcess__sql2soap",
       "H3b 复用组：源 BS 的 TargetConfigNames 指向**本次**的本组 BP（%s）" % _tcn)
+_fhir_own = [
+    {"type": "FHIRService", "name": "FHIRService", "className": "demo.FHIRService",
+     "settings": [{"target": "Host", "name": "TargetConfigNames", "value": "TransformProcess"}]},
+    {"type": "TransformProcess", "name": "TransformProcess", "className": "demo.TransformProcess"},
+    {"type": "SQLOperation", "name": "SQLOp_PatientSource",
+     "className": "EnsLib.SQL.Operation.GenericOperation"},
+]
+_raw_infra = [{"type": "FHIRSyncService", "name": "FHIRSyncService"}]
+_fhir_reused = PL.build_multi_pipeline_topology([{
+    "source_type": "FHIR", "target_type": "DB", "_category": "fhir2db",
+    "_unchanged": True, "source_config": {
+        "endpoint": "http://iris:52773/csp/healthshare/demofhir/fhir/r4",
+    }, "target_config": {}, "mappings": [],
+    "ai_components": _raw_infra + _fhir_own,
+    "_frozen_components": _fhir_own, "_frozen_infra": _raw_infra,
+}])
+_sync = next(c for c in _fhir_reused["components"] if c.get("type") == "FHIRSyncService")
+check(_sync.get("className") == "demo.FHIRSyncService" and "settings" in _sync,
+      "H3c 复用组的共享 FHIR 生产者仍经注册表参数化（原始 AI 决策不直接渲染）")
+check(_sync.get("category") == "shared"
+      and sum(c.get("type") == "FHIRSyncService" for c in _fhir_reused["components"]) == 1,
+      "H3d 复用的共享 FHIR 生产者全局只保留一个")
 # H4–H6：许可调度 × 运行态收敛（实测缺陷：调度停用的组被回填成"半启用"、或应启用的组被历史快照停掉）
 _t = {"components": [{"name": "A_bs", "category": "sql2soap", "enabled": True},
                      {"name": "A_bp", "category": "sql2soap", "enabled": True},

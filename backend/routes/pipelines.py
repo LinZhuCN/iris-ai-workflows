@@ -119,6 +119,12 @@ def generate():
         except Exception as exc:  # noqa: BLE001
             logger.error("多管道生成失败: %s", exc)
             return error(f"多管道生成失败: {exc}"), 500
+        c2_report = multi.get("c2") or {}
+        if c2_report.get("status") == "failed":
+            return error(c2_report.get("message") or "C2 管道修复未通过", data={
+                "validation": multi.get("validation") or {},
+                "c2": c2_report,
+            }), 500
         if multi.get("result") != "OK":
             # 术语门禁中止：返回 400 + 面向用户的明确说明（缺哪些码、怎么补录），而不是笼统 500
             if multi.get("gate") is not None:
@@ -130,12 +136,18 @@ def generate():
                 return error(multi.get("message") or "管道身份不完整", data={
                     "reason": "PIPELINE_IDENTITY_MISSING",
                     "dup_merged": multi.get("dup_merged") or []}), 400
-            return error(f"多管道生成失败: {multi.get('result')}"), 500
+            return error(f"多管道生成失败: {multi.get('result')}", data={
+                "validation": multi.get("validation") or {},
+                "c2": multi.get("c2") or {},
+            }), 500
         v = multi.get("validation") or {}
         if not v.get("ok"):
             msgs = [i.get("message") for i in v.get("issues", [])
                     if i.get("severity") == "error"][:3]
-            return error(f"多管道验证未通过: {'; '.join(msgs) or '未知'}"), 500
+            return error(f"多管道验证未通过: {'; '.join(msgs) or '未知'}", data={
+                "validation": v,
+                "c2": multi.get("c2") or {},
+            }), 500
         if multi.get("unchanged"):
             # 增量：全部提交的管道都已存在且未变更 → 不重渲染/不重启（P3）
             return success(multi, "所有数据管道均已存在且未变更（未重新生成）")
@@ -424,6 +436,12 @@ def generate():
         "mappings": mappings_effective,
     }], strict_terms=bool(body.get("strict_terms")), force=bool(body.get("force")),
         allow_rule_fallback=bool(body.get("allow_rule_fallback")))
+    c2_report = _m2.get("c2") or {}
+    if c2_report.get("status") == "failed":
+        return error(c2_report.get("message") or "C2 管道修复未通过", data={
+            "validation": _m2.get("validation") or {},
+            "c2": c2_report,
+        }), 500
     if _m2.get("result") != "OK":
         if _m2.get("gate") is not None:                 # 术语严格模式（strict_terms）
             return error(_m2.get("message") or "术语预检未通过（严格模式）", data={
@@ -432,7 +450,19 @@ def generate():
         if _m2.get("reason") == "PIPELINE_IDENTITY_MISSING":
             return error(_m2.get("message") or "管道身份不完整", data={
                 "reason": "PIPELINE_IDENTITY_MISSING"}), 400
-        return error(f"管道生成失败: {_m2.get('result')}"), 500
+        return error(f"管道生成失败: {_m2.get('result')}", data={
+            "validation": _m2.get("validation") or {},
+            "c2": c2_report,
+        }), 500
+
+    validation = _m2.get("validation") or {}
+    if not validation.get("ok"):
+        messages = [issue.get("message") for issue in validation.get("issues", [])
+                    if issue.get("severity") == "error"][:3]
+        return error(f"管道验证未通过: {'; '.join(messages) or '未知'}", data={
+            "validation": validation,
+            "c2": c2_report,
+        }), 500
 
     if _m2.get("unchanged"):
         return success(_m2, "该数据管道已存在且未变更（跳过重新生成）")

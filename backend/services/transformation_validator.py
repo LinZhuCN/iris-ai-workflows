@@ -451,18 +451,19 @@ def _field_terms_index(assets: list[dict] | None) -> dict[str, dict]:
 
 
 def validate_mapping_against_constraints(mappings: list[dict],
-                                         target_models: list[dict] | None = None) -> dict:
+                                         target_models: list[dict] | None = None,
+                                         assets: list[dict] | None = None) -> dict:
     """生成前强校验：指令合法性 + 必填（列级/值级）+ FHIR 结构约束 + DB 主键事实。
 
     target_models 可选（传入则用于解析目标表主键事实，缺省时按登记记录/JDBC 探查）。
     返回 {"ok": bool, "issues": [...], "error_count": int}（供生成端/外部调用）。
     """
-    issues = (_directive_issues(mappings)
-              + _fhir_required_issues(mappings)
+    issues = (_directive_issues(mappings, assets)
+              + _fhir_required_issues(mappings, assets)
               + _fhir_structure_issues(mappings)
               + _term_map_issues(mappings)
-              + _coded_text_issues(mappings)
-              + _db_key_issues(mappings, target_models))
+              + _coded_text_issues(mappings, assets)
+              + _db_key_issues(mappings, target_models, assets))
     errors = [i for i in issues if i.get("severity") == "error"]
     return {"ok": not errors, "issues": issues, "error_count": len(errors)}
 
@@ -580,6 +581,67 @@ def _l1_fix_mappings(mappings: list[dict],
             changed = True
         fixed.append({**m, "field_mappings": fms})
     return fixed, changed
+
+
+def repair_from_pipeline_feedback(mappings: list[dict], *, evidence: dict,
+                                  assets: list[dict], target_models: list[dict]) -> dict:
+    """C2 工具：只调用一次 C1，按 target 合并，不删除映射或改变管道身份。"""
+    current = json.loads(json.dumps(mappings))
+    report = pipeline_validator.run_transformation_validation(current, assets, target_models)
+    constraints = validate_mapping_against_constraints(current, target_models, assets)
+    report["issues"].extend(constraints["issues"])
+    if any(i.get("severity") == "error" for i in report["issues"]):
+        report["ok"] = False
+    report["pipeline_feedback"] = evidence
+    decision = judge_transformation(report, {
+        "assets": assets, "target_models": target_models,
+        "mappings": current,
+        "mapping_count": len(current),
+        "repair_scope": "只返回 update_mapping；不得修改 id/source/target_table/target_type",
+    }, [])
+    fix = decision.get("fix") or {}
+    updates = (fix.get("fix") or {}).get("updates")
+    if fix.get("action") != "update_mapping" or not isinstance(updates, list) or not updates:
+        return {"ok": False, "message": "C1 未提供受控 update_mapping"}
+    by_id = {str(m["id"]): m for m in current}
+    seen = set()
+    for update in updates:
+        if not isinstance(update, dict):
+            return {"ok": False, "message": "C1 更新必须为对象"}
+        mid = str(update.get("id") or "")
+        if mid not in by_id or mid in seen:
+            return {"ok": False, "message": "C1 更新引用未知或重复 mapping id"}
+        seen.add(mid)
+        mapping = by_id[mid]
+        if any(key in update and update[key] != mapping.get(key)
+               for key in ("source", "target_table", "target_type")):
+            return {"ok": False, "message": "C1 不得改变映射所属源或目标"}
+        fields = update.get("field_mappings")
+        if not isinstance(fields, list) or not fields:
+            return {"ok": False, "message": "C1 更新缺少 field_mappings"}
+        targets = set()
+        for field in fields:
+            if not isinstance(field, dict) or not field.get("target") or field["target"] in targets:
+                return {"ok": False, "message": "C1 字段更新缺少 target 或 target 重复"}
+            targets.add(field["target"])
+            base = mapping.setdefault("field_mappings", [])
+            index = next((i for i, fm in enumerate(base)
+                          if fm.get("target") == field["target"]), None)
+            if index is None:
+                base.append(dict(field))
+            else:
+                base[index] = {**base[index], **field}
+    mapping_source_norm.normalize_mappings(current, assets)
+    constraints = validate_mapping_against_constraints(current, target_models, assets)
+    checked = pipeline_validator.run_transformation_validation(current, assets, target_models)
+    issues = constraints["issues"] + checked.get("issues", [])
+    if any(issue.get("severity") == "error" for issue in issues):
+        return {"ok": False, "message": "C1 补丁未通过转换完整性检查",
+                "checks": sorted({i.get("check") or "constraints" for i in issues})}
+    if current == mappings:
+        return {"ok": False, "message": "C1 未产生映射变更"}
+    return {"ok": True, "mappings": current, "mapping_ids": sorted(seen),
+            "message": "C1 单轮映射补丁通过静态准入，等待管道复验"}
 
 
 def validate_and_fix_transformation(mappings: list[dict],
@@ -758,4 +820,3 @@ def validate_and_fix_transformation(mappings: list[dict],
     return {"status": "failed", "rounds": rounds_log,
             "mappings": current_mappings, "report": report,
             "message": "超过最大修复轮数仍存在问题"}
-

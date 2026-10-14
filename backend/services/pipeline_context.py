@@ -315,8 +315,14 @@ def configs_for_identity(source_id: str | None, target_id: str | None) -> tuple[
         elif tt == "FHIR":
             tgt_cfg = merge_fhir_target_config({}, tg)
         elif tt == "SOAP":
-            tgt_cfg = {"service": (tg.get("config") or {}).get("service") or "default",
-                       "endpoint": rt.get("endpoint") or Config.MOCK_SOAP_URL}
+            connection = tg.get("connection") or {}
+            legacy = tg.get("config") or {}
+            tgt_cfg = {k: rt.get(k) or connection.get(k) or legacy.get(k) or ""
+                       for k in ("service", "endpoint", "wsdl", "bo_class")}
+            tgt_cfg["service"] = tgt_cfg["service"] or "default"
+            tgt_cfg["endpoint"] = tgt_cfg["endpoint"] or Config.MOCK_SOAP_URL
+            tgt_cfg["packages"] = (rt.get("packages") or connection.get("packages")
+                                   or legacy.get("packages") or {})
     return src_cfg, tgt_cfg
 
 

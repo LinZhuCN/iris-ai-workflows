@@ -105,7 +105,7 @@ check(errs(GOOD_REFS) == [], "H2 先取 bundle 再取 refs → 通过")
 CHAINED = ("    Set tRefs=tLayout.%Get(\"bundle\").%Get(\"refs\")\n")
 check(errs(CHAINED) == [], "H3 链式 `%Get(\"bundle\").%Get(\"refs\")` → 通过（不漏不误）")
 
-print("\n==== I. 运行期错误分类（引用缺陷必须回喂 BP 修复，不是改映射） ====")
+print("\n==== I. 运行期错误分类（引用代码缺陷不能假称已由设置修复） ====")
 from backend.services import pipeline_validator as PV  # noqa: E402
 
 REAL_ERR = ('ERROR <Ens>ErrBPTerminated: Terminating BP SqlFhirPatientTxProcess__sql2fhir_patient_tx_2 '
@@ -115,7 +115,9 @@ REAL_ERR = ('ERROR <Ens>ErrBPTerminated: Terminating BP SqlFhirPatientTxProcess_
             '\'Encounter\' is malformed"},"expression":["Encounter.subject"]}]}')
 cls = PV.classify_runtime_error(REAL_ERR)
 check(cls.get("kind") == "bp_code", "I1 MalformedRelativeReference → bp_code（%s）" % cls.get("kind"))
-check("bundle.refs" in str(cls.get("advice") or ""), "I2 修复建议指向 layout.bundle.refs")
+check("故障方法归属" in str(cls.get("advice") or "")
+      and "继承引擎缺陷必须明确失败" in str(cls.get("advice") or ""),
+      "I2 修复建议区分生成类单轮方法工具与不可修改的继承引擎")
 cls2 = PV.classify_runtime_error('ERROR #5001: FHIR rejected: {"issue":[{"diagnostics":'
                                  '"MissingRequiredProperty"}]}')
 check(cls2.get("kind") == "fhir_schema", "I3 其他 OperationOutcome 仍归 fhir_schema（未误伤）")
@@ -181,7 +183,9 @@ if len(_defs) < 5:                      # 健全性：活类应有多个方法�
     _defs = set()
 if not _defs:
     _cls = None
-    for _p in ("/shared/src/demo/TransformProcess.cls", "/app/iris/src/demo/TransformProcess.cls",
+    for _p in (os.path.join(os.environ.get("REPO_ROOT") or os.getcwd(),
+                           "iris/src/demo/TransformProcess.cls"),
+               "/shared/src/demo/TransformProcess.cls", "/app/iris/src/demo/TransformProcess.cls",
                "/tmp/TransformProcess.cls"):
         if os.path.exists(_p):
             _cls = _p

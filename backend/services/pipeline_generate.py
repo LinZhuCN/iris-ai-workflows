@@ -15,13 +15,14 @@
 - `routes/pipelines.py` 以**别名**导入（私有名保持不变），调用点与离线回归无需改动。
 """
 
+import hashlib
 import json
 import logging
 import re
 from datetime import datetime
 
 # P0 清理（2026-09-21）：移除迁移后不再使用的导入 —— `time`、`timezone`、`FHIRConfig`、
-# `validate_agent`、`sql_source_meta`、`BO_PREFIX`（逐项实测：仅在 import 行出现 1 次）。
+# `sql_source_meta`、`BO_PREFIX`（逐项实测：仅在 import 行出现 1 次）。
 from backend.config import Config
 from backend.services import (iris_connector, llm_client, pipeline_instances,
                               pipeline_validator, repository,
@@ -73,7 +74,7 @@ def save_pipeline_topology(pipeline):
                                       ensure_ascii=False),
                            "^demo.Config", "termsrv")
     finally:
-        iris_connector.reset_connections()
+        conn.close()
 
 
 def save_fhir_runtime_config(topology: dict | None, target_config: dict | None = None,
@@ -162,6 +163,135 @@ def bp_plan_mode_on() -> bool:
     """BP 是否走"非整类"路径（engine / plan）——此时 Agent B 只出拓扑。"""
     import os
     return os.getenv("BP_GEN_MODE", "engine").strip().lower() in ("engine", "plan")
+
+
+def execute_c2_group_repair(action: str, fix: dict, topology: dict,
+                            evidence: dict, groups: list[dict]) -> dict:
+    """C2 单轮工具分发：按源/目标身份定位，不调用带独立重试预算的生成入口。"""
+    from backend.services import generated_bp, validate_agent
+    matches = [g for g in groups
+               if fix.get("source_id") and fix.get("target_id")
+               and g.get("source_id") == fix["source_id"]
+               and g.get("target_id") == fix["target_id"]]
+    if len(matches) != 1:
+        return {"ok": False, "audit": {"ok": False, "message": "必须指定唯一源/目标身份"}}
+    group = matches[0]
+    owned = set(group.get("_own_names") or [])
+    components = [c for c in topology.get("components") or [] if c.get("name") in owned]
+    if not components or any(c.get("enabled") in (False, 0, "false", "False")
+                             for c in components):
+        return {"ok": False, "audit": {"ok": False, "message": "待修组缺少组件或已调度停用"}}
+    candidate = json.loads(json.dumps(topology))
+    maps = group.get("mappings") or []
+    if action == "repair_mapping":
+        result = transformation_validator.repair_from_pipeline_feedback(
+            maps, evidence=evidence, assets=c1_assets(group.get("source_id")),
+            target_models=c1_target_models(maps))
+        if result.get("ok"):
+            new_maps = result["mappings"]
+            layout = group.get("_layout")
+            if layout:
+                from backend.services import sql2fhir_executor
+                layout = sql2fhir_executor.enrich_layout_with_mappings(
+                    json.loads(json.dumps(layout)), new_maps)
+                bp_names = [c["name"] for c in components if c.get("type") == "PatientTxProcess"]
+                if len(bp_names) != 1:
+                    raise ValueError("C1 布局修复无法定位唯一聚合 BP")
+                save_sql2fhir_layout(layout, bp_names[0])
+                group["_layout"] = layout
+            for mapping in new_maps:
+                write_mapping_patch(mapping)
+            group["mappings"] = new_maps
+            group["_sig_in"] = inc_input_signature(group)
+            result["artifact_hash"] = hashlib.sha256(
+                json.dumps(new_maps, sort_keys=True).encode()).hexdigest()
+    elif action == "repair_bp":
+        bps = [c for c in components if c.get("type") == "PatientTxProcess"]
+        if len(bps) != 1:
+            return {"ok": False, "audit": {"ok": False, "message": "未定位唯一生成 BP"}}
+        bp_class = bps[0].get("className")
+        users = [c for c in topology.get("components") or [] if c.get("className") == bp_class]
+        if len(users) != 1:
+            return {"ok": False, "audit": {
+                "ok": False, "message": "生成类被多管道共用，拒绝未经隔离的源码修改"}}
+        result = generated_bp.repair_generated_methods_once(
+            class_name=bp_class, bp_mode=(group.get("_bp_meta") or {}).get("bp_mode", ""),
+            evidence=evidence, mappings=maps, components=AVAILABLE_COMPONENTS,
+            layout=group.get("_layout") or {}, component_name=bps[0]["name"])
+    elif action == "repair_topology":
+        # 保留命名、许可调度和连接参数；本工具只修已有组件类名与组内派发。
+        safe_components = validate_agent._redact_c2_topology({"components": components})["components"]
+        proposal = llm_client.recommend_pipeline(
+            maps, group["source_type"], group["target_type"], AVAILABLE_COMPONENTS,
+            source_models=c1_assets(group.get("source_id")),
+            target_models=c1_target_models(maps), bp_plan_mode=True,
+            pipeline_repair_context={
+                "evidence": evidence, "current_components": safe_components,
+                "instruction": "保留组件 name/type/category/enabled，返回完整组组件。"
+                               "只修 className 与 Host.TargetConfigNames；其他设置保持 [HIDDEN]，"
+                               "不得新增/删除组件，不得修改查询、连接、凭据或设计 Skill。",
+            })
+        proposed = (proposal.get("pipeline") or {}).get("components")
+        if not isinstance(proposed, list) or len(proposed) != len(components):
+            return {"ok": False, "audit": {"ok": False, "message": "Agent B 不得增删当前组组件"}}
+        templates = {c["type"]: c for c in (
+            type_registry.get_source_components(group["source_type"])
+            + type_registry.get_target_components(group["target_type"])
+            + type_registry.get_common_components()
+            + type_registry.get_pipeline_asset_components())}
+        seen = set()
+        for proposed_component in proposed:
+            if not isinstance(proposed_component, dict):
+                return {"ok": False, "audit": {"ok": False, "message": "Agent B 组件必须为对象"}}
+            name = proposed_component.get("name")
+            if name not in owned or name in seen:
+                return {"ok": False, "audit": {"ok": False, "message": "Agent B 返回未知或重复组件"}}
+            seen.add(name)
+            current = next(c for c in candidate["components"] if c.get("name") == name)
+            if any(key in proposed_component and proposed_component[key] != current.get(key)
+                   for key in ("type", "category", "enabled")):
+                return {"ok": False, "audit": {"ok": False, "message": "Agent B 不得改变组件身份或启停"}}
+            expected_class = (templates.get(current.get("type")) or {}).get("className")
+            if current.get("type") == "SOAPOperation":
+                expected_class = (group.get("target_config") or {}).get("bo_class")
+            requested_class = proposed_component.get("className")
+            if requested_class and requested_class != current.get("className"):
+                if not expected_class or requested_class != expected_class:
+                    return {"ok": False, "audit": {"ok": False, "message": "Agent B 类名不符合注册契约"}}
+                current["className"] = requested_class
+            for setting in proposed_component.get("settings") or []:
+                if not isinstance(setting, dict):
+                    return {"ok": False, "audit": {"ok": False, "message": "Agent B 设置必须为对象"}}
+                old = next((s for s in current.get("settings") or []
+                            if s.get("name") == setting.get("name")
+                            and s.get("target") == setting.get("target")), None)
+                if old is None:
+                    return {"ok": False, "audit": {"ok": False, "message": "Agent B 不得新增设置"}}
+                value = setting.get("value")
+                if value in ("[HIDDEN]", "[REDACTED]") or value == old.get("value"):
+                    continue
+                targets = [part.strip() for part in value.split(",")] if isinstance(value, str) else []
+                destinations = {c["name"] for c in components
+                                if c.get("type") in ("TransformProcess", "PatientTxProcess")}
+                if (current.get("type") not in ("SQLService", "FHIRService")
+                        or setting.get("name") != "TargetConfigNames" or setting.get("target") != "Host"
+                        or not isinstance(value, str) or not value
+                        or len(targets) != 1 or not set(targets) <= destinations):
+                    return {"ok": False, "audit": {"ok": False, "message": "Agent B 设置补丁越过组内派发范围"}}
+                old["value"] = value
+        if candidate == topology:
+            return {"ok": False, "audit": {"ok": False, "message": "Agent B 未产生拓扑变更"}}
+        result = {"ok": True, "message": "Agent B 单轮类名/派发补丁通过准入，等待复验"}
+    else:
+        return {"ok": False, "audit": {"ok": False, "message": "未知 C2 工具"}}
+    audit = {k: v for k, v in result.items() if k != "mappings"}
+    audit.update({"source_id": group["source_id"], "target_id": group["target_id"]})
+    if result.get("ok"):
+        group["_unchanged"] = False
+        if action == "repair_topology":
+            audit["artifact_hash"] = hashlib.sha256(
+                json.dumps(candidate, sort_keys=True).encode()).hexdigest()
+    return {"ok": bool(result.get("ok")), "topology": candidate, "audit": audit}
 
 
 def bp_plan_mode_for(source_type: str, target_type: str) -> bool:
@@ -959,6 +1089,7 @@ def auto_join_existing_pipelines(submitted: list[dict],
         g["_sig_in"] = inc_input_signature(g)
         # 冻结定义（复用渲染用：参数完整 + 改名前名字）
         g["_frozen_components"] = frozen_defs_from_instance(rec)
+        g["_bp_meta"] = rec.get("bp_meta") or {}
         g["_frozen_infra"] = [dict(c) for c in comps
                               if isinstance(c, dict) and is_infra_component(c)]
         _ok_def, _why = stored_definition_complete(
@@ -1054,7 +1185,17 @@ def build_multi_pipeline_topology(pipelines: list[dict]) -> dict:
                     if str(_s.get("name")) == "TargetConfigNames" and bp_name:
                         _s["value"] = bp_name
             topo = {"production": "demo.DataflowProduction",
-                    "components": _frozen + [dict(c) for c in (g.get("_frozen_infra") or [])]}
+                    "components": _frozen}
+            infra_templates = {
+                t["type"]: t for t in (
+                    type_registry.get_source_components(g.get("source_type") or "FHIR")
+                    + type_registry.get_common_components())
+            }
+            for c in g.get("_frozen_infra") or []:
+                template = infra_templates.get(c.get("type"))
+                if not template:
+                    raise ValueError(f"无法参数化未注册的共享组件: {c.get('type')}")
+                topo["components"].append({**common_component(template), **c})
         else:
             topo = build_pipeline_topology(
                 g.get("mappings") or [],
@@ -1529,21 +1670,14 @@ def missing_patient_root_hint(mappings: list[dict] | None, group_source_id: str 
 
 
 def reset_ens_messages_for_generate() -> None:
-    """生成前停 Production 并清空 Ens 消息历史。
+    """生成前停止 Production；历史消息保留，由每轮检查点隔离。
 
-    为什么：消息历史里遗留的 Error 消息（如上一版 Agent BP 的运行期报错）会被 smoke 校验
-    当成本次生成的问题 → 触发"自动重建一次"后仍失败。清空后校验只反映本次生成的结果。
+    避免将上一版错误当作本轮故障；保留历史便于审计，不靠清消息消除错误。
     """
     try:
         iris_connector.class_method_value("Ens.Director", "StopProduction", 30)
     except Exception as exc:  # noqa: BLE001 - 未运行/类不存在时忽略
         logger.info("生成前停 Production 跳过: %s", str(exc)[:120])
-    try:
-        iris_connector.execute("DELETE FROM Ens.MessageBody")
-        iris_connector.execute("DELETE FROM Ens.MessageHeader")
-        logger.info("已清空 Ens 消息历史（避免历史错误干扰 smoke 校验）")
-    except Exception as exc:  # noqa: BLE001 - 清理失败不阻断生成
-        logger.warning("清空消息历史失败（不阻断）: %s", str(exc)[:120])
 
 
 def generate_multi_pipelines(pipelines: list[dict], *, strict_terms: bool = False,
@@ -1583,8 +1717,13 @@ def generate_multi_pipelines(pipelines: list[dict], *, strict_terms: bool = Fals
                     {"severity": "error", "check": "term_map_precheck",
                      "message": _tgate.get("message") or "术语预检未通过（严格模式）"}]}}
 
-    # 生成前先停 Production 并清消息历史（否则历史 Error 消息会让 smoke 校验误判本次失败）
-    reset_ens_messages_for_generate()
+    _production_stopped = False
+
+    def _stop_for_regeneration():
+        nonlocal _production_stopped
+        if not _production_stopped:
+            reset_ens_messages_for_generate()
+            _production_stopped = True
 
     groups: list[dict] = []
     all_mappings: list[dict] = []
@@ -1821,6 +1960,7 @@ def generate_multi_pipelines(pipelines: list[dict], *, strict_terms: bool = Fals
                     _g["ai_components"] = _irec.get("ai_components") or []
                     _g["design_skill"] = _irec.get("design_skill") or _g.get("design_skill")
                     _g["_sql2fhir"] = bool(_irec.get("is_sql2fhir"))
+                    _g["_bp_meta"] = _irec.get("bp_meta") or {}
                     # 冻结定义：复用渲染时用它（参数完整 + 改名前名字 → 保真且不产生二次后缀）
                     _g["_frozen_components"] = frozen_defs_from_instance(_irec)
                     _g["_frozen_infra"] = [dict(c) for c in (_irec.get("ai_components") or [])
@@ -1838,10 +1978,11 @@ def generate_multi_pipelines(pipelines: list[dict], *, strict_terms: bool = Fals
                                 _irec.get("id"), _irec.get("signature"), _sig_in,
                                 [(m.get("id"), len(m.get("field_mappings") or []))
                                  for m in (_g.get("mappings") or [])])
+                _stop_for_regeneration()
                 # 上下文精准化：只把本组映射涉及的表交给 Agent（否则会为数据源每张表生成源 BS）
                 _g_tables = source_tables_from_mappings(_g.get("mappings") or [])
                 _g_rt_src, _g_models = scope_source_context(
-                    _g.pop("_rt_src", None), c1_assets(_g.get("source_id")), _g_tables)
+                    _g.get("_rt_src"), c1_assets(_g.get("source_id")), _g_tables)
                 _p = llm_client.recommend_pipeline(
                     _g.get("mappings") or [],
                     source_type=_g["source_type"], target_type=_g["target_type"],
@@ -1849,7 +1990,7 @@ def generate_multi_pipelines(pipelines: list[dict], *, strict_terms: bool = Fals
                     source_models=_g_models,
                     transformation_plan={"mappings": _g.get("mappings") or []},
                     source_runtime=_g_rt_src,
-                    target_runtime=_g.pop("_rt_tgt", None),
+                    target_runtime=_g.get("_rt_tgt"),
                     # 已登记管道事实（同一源/目标 → 更新既有管道而非新增；决策仍归 LLM）
                     existing_pipelines=pipeline_instances.existing_pipelines_brief(),
                     # Plan 模式：SQL→FHIR 时只让 Agent B 出拓扑（聚合 BP 由计划+逐方法生成）
@@ -1922,6 +2063,9 @@ def generate_multi_pipelines(pipelines: list[dict], *, strict_terms: bool = Fals
         # 任一组件缺失 → 走完整重渲染自愈（安全兜底）。
         if groups and all(_g.get("_unchanged") for _g in groups):
             _prod_now = running_items()
+            _unchanged_recs = [
+                pipeline_instances.find_instance(_g.get("source_id"), _g.get("target_id")) or {}
+                for _g in groups]
             _gone: list[str] = []
             for _g in groups:
                 _rec_u = pipeline_instances.find_instance(_g.get("source_id"), _g.get("target_id")) or {}
@@ -1940,21 +2084,19 @@ def generate_multi_pipelines(pipelines: list[dict], *, strict_terms: bool = Fals
             # ③ 组内启停一致性（2026-09-20 实测）：同一管道的组件必须**全启用或全停用**——
             #    出现"源 BS 停、BO 还在跑"这类半启用状态时，必须重渲染收敛（否则状态被锁死、
             #    BO/BP 白占许可，用户看到"目标 BO 为何没被禁用"）。
-            _by_cat: dict[str, set] = {}
-            for _n, _i in _prod_now.items():
-                _c = str(_i.get("category") or "")
-                if _c:
-                    _by_cat.setdefault(_c, set()).add(int(_i.get("enabled") or 0))
-            _inconsistent = sorted(c for c, vs in _by_cat.items() if len(vs) > 1)
+            _inconsistent = []
+            for _rec_state in _unchanged_recs:
+                _states = {int((_prod_now.get(name) or {}).get("enabled") or 0)
+                           for name in _rec_state.get("component_names") or []
+                           if name in _prod_now}
+                if len(_states) > 1:
+                    _inconsistent.append(_rec_state["id"])
             if _inconsistent:
                 logger.warning("增量生成：组件启停不一致的管道 %s → 走完整重渲染收敛", _inconsistent)
                 _gone.extend(_inconsistent)
             if _prod_now and not _gone:
                 logger.info("增量生成：%d 条管道输入均未变且组件在位 → 跳过重渲染/重启（无变更）",
                             len(groups))
-                _unchanged_recs = [
-                    pipeline_instances.find_instance(_g.get("source_id"), _g.get("target_id")) or {}
-                    for _g in groups]
                 for _g in groups:      # 保留本组输入签名（供下次比对）
                     _g["_sig_in"] = _g.get("_sig_in") or inc_input_signature(_g)
                 return {"result": "OK", "unchanged": True,
@@ -1975,6 +2117,7 @@ def generate_multi_pipelines(pipelines: list[dict], *, strict_terms: bool = Fals
                              "rule_fallback": bool(_g.get("_rule_fallback"))}
                             for _g in groups]}}
 
+        _stop_for_regeneration()
         topology = build_multi_pipeline_topology(groups)
         # sql2fhir 布局**按聚合 BP 实例**写入（一管道一实例；全局键作历史兼容兜底）：
         # 组件名在拓扑构建阶段才定（同名跨组会加 `__{类别}` 后缀），故必须在此之后写。
@@ -2108,81 +2251,167 @@ def generate_multi_pipelines(pipelines: list[dict], *, strict_terms: bool = Fals
             _msgs = [i.get("message", "") for i in _conn_check.get("issues", [])][:3]
             raise ValueError("源/目标连通性检查未通过: " + "; ".join(_msgs))
 
-        def _gen_and_validate():
-            _r = iris_connector.class_method_value(
-                "demo.PipelineGenerator", "Generate", mappings_json, config_json)
-            _v = pipeline_validator.run_pipeline_validation(
-                topology, source_types=_src_types, target_types=_tgt_types,
-                expect_targets=_expect_targets or None,
-                effect_target_types=_active_tgt_types)
+        def _gen_and_validate(candidate_topology=None):
+            nonlocal topology
+            if candidate_topology is not None:
+                topology = candidate_topology
+                save_pipeline_topology(topology)
+            stage = "generation"
+            try:
+                _runtime_error_after_id = pipeline_validator.latest_runtime_error_id()
+                _message_after_id = pipeline_validator.latest_message_id()
+                _r = iris_connector.class_method_value(
+                    "demo.PipelineGenerator", "Generate", mappings_json, config_json)
+                stage = "validation"
+                _v = pipeline_validator.run_pipeline_validation(
+                    topology, source_types=_src_types, target_types=_tgt_types,
+                    expect_targets=_expect_targets or None,
+                    effect_target_types=_active_tgt_types,
+                    runtime_error_after_id=_runtime_error_after_id,
+                    message_after_id=_message_after_id)
+            except Exception as exc:
+                logger.exception("管道%s失败，交给 C2 统一报告: %s", stage, exc)
+                issue = {"check": stage, "severity": "error", "item": stage,
+                         "message": f"{stage} 执行异常: {exc}"}
+                return "ERROR", {
+                    "ok": False, "error_count": 1, "warning_count": 0,
+                    "issues": [issue],
+                    "results": {stage: {"ok": False, "issues": [issue]}},
+                }
             return _r, _v
 
         result, validation = _gen_and_validate()
-        # 运行期错误回喂（有界 1 次）：FHIR 结构类 → 逐组 C1 修映射；BP 代码类 → method_updates 修复
-        if result != "OK" or not validation.get("ok"):
-            logger.warning("多管道验证未通过明细: %s",
-                           json.dumps(validation.get("issues") or [], ensure_ascii=False)[:900])
-            try:
-                _rt = (validation.get("results") or {}).get("runtime") or {}
-                _kinds = _rt.get("kinds") or []
-                _err_text = "\n".join(i.get("message", "") for i in (_rt.get("issues") or []))
-                if "fhir_schema" in _kinds:
-                    logger.info("多管道运行期 FHIR 结构错误 → 逐组 C1 修复映射")
-                    for _g in groups:
-                        if _g.get("target_type") != "FHIR":
-                            continue
-                        _f2 = transformation_validator.validate_and_fix_transformation(
-                            _g.get("mappings") or [], assets=c1_assets(_g.get("source_id")),
-                            target_models=c1_target_models(_g.get("mappings") or []))
-                        if _f2.get("status") == "ok" and _f2.get("mappings"):
-                            for _m in _f2["mappings"]:
-                                if isinstance(_m, dict) and _m.get("id"):
-                                    write_mapping_patch(_m)
-                            _g["mappings"] = _f2["mappings"]
-                    all_mappings = [m for _g in groups for m in (_g.get("mappings") or [])]
+        c2_report = {"status": "not_needed", "attempts": [], "attempt_limit": 0}
+        def _repair_with_c2():
+            nonlocal result, validation, topology, c2_report
+            from backend.services import validate_agent
+            if not validate_agent.has_blocking_failure(validation, result):
+                return
+            requires_effect = (
+                ((validation.get("results") or {}).get("runtime") or {}).get("ok") is False
+                or bool({i.get("check") for i in validation.get("issues") or []}
+                        & {"smoke", "target_effect", "query_dispatch"}))
+            failed_items = {i.get("item") for i in validation.get("issues") or []}
+            failed_items.update(i.get("item") for i in
+                                (((validation.get("results") or {}).get("runtime") or {})
+                                 .get("issues") or []))
+            affected = [g for g in groups if failed_items & set(g.get("_own_names") or [])]
+            if requires_effect and not affected:
+                affected = [g for g in groups if any(
+                    c.get("name") in (g.get("_own_names") or [])
+                    and c.get("enabled") not in (False, 0, "false", "False")
+                    for c in topology.get("components") or [])]
+            repaired_groups = {(g["source_id"], g["target_id"]) for g in affected} \
+                if requires_effect else set()
+            message_checkpoint = pipeline_validator.latest_message_id() if requires_effect else 0
+            def _execute_tool(action, fix, current_topology, evidence):
+                nonlocal mappings_json, all_mappings, message_checkpoint
+                message_checkpoint = pipeline_validator.latest_message_id()
+                outcome = execute_c2_group_repair(action, fix, current_topology, evidence, groups)
+                if outcome.get("ok"):
+                    if evidence.get("validation", {}).get("results", {}).get("runtime", {}).get(
+                            "ok") is False or set(evidence.get("failed_checks") or []) & {
+                                "smoke", "target_effect", "query_dispatch"}:
+                        repaired_groups.add((fix["source_id"], fix["target_id"]))
+                    all_mappings = [m for g in groups for m in g.get("mappings") or []]
                     mappings_json = json.dumps(all_mappings, ensure_ascii=False)
-                    result, validation = _gen_and_validate()
-                if "bp_code" in _kinds:
-                    from backend.services import generated_bp as _gbp
-                    _sf_group = next((g for g in groups
-                                      if g["source_type"] == "SQL" and g["target_type"] == "FHIR"),
-                                     None)
-                    if _sf_group:
-                        logger.info("多管道运行期 BP 代码错误 → method_updates 增量修复")
-                        _reps = _gbp.repair_from_runtime_errors(
-                            mappings=_sf_group.get("mappings") or [],
-                            source_type="SQL", target_type="FHIR",
-                            available_components=AVAILABLE_COMPONENTS,
-                            errors_text=_err_text)
-                        if _reps.get("ok"):
-                            try:
-                                iris_connector.class_method_value("Ens.Director", "StopProduction", 10)
-                                iris_connector.class_method_value(
-                                    "Ens.Director", "StartProduction", "demo.DataflowProduction")
-                            except Exception as _se:  # noqa: BLE001
-                                logger.warning("多管道修复后重启 Production 失败: %s", _se)
-                            result, validation = _gen_and_validate()
-                        else:
-                            logger.warning("多管道 BP 方法修复未通过: %s", _reps.get("message"))
-                            # 回滚到上一版通过验证的 BP（显式告警）→ 重启 Production 复验，
-                            # 保证「新增管道」不会因本次 Agent BP 质量波动而把数据通路弄坏
-                            _rb = _gbp.restore_last_good()
-                            if _rb.startswith("restored"):
-                                logger.warning("多管道 BP 已回滚 last_good（%s）→ 重启并复验", _rb)
-                                try:
-                                    iris_connector.class_method_value(
-                                        "Ens.Director", "StopProduction", 10)
-                                    iris_connector.class_method_value(
-                                        "Ens.Director", "StartProduction", "demo.DataflowProduction")
-                                except Exception as _se:  # noqa: BLE001
-                                    logger.warning("回滚后重启 Production 失败: %s", _se)
-                                result, validation = _gen_and_validate()
-            except Exception as _re:  # noqa: BLE001 - 回喂失败不阻断主流程
-                logger.warning("多管道运行期回喂失败（不影响主流程）: %s", _re)
-        # 失败自动重建一次（Ens 重启/瞬态类问题）；仍失败则沉淀经验后返回错误
-        if result != "OK" or not validation.get("ok"):
-            logger.warning("多管道首次生成/验证未通过（%s），自动重建一次", result)
-            result, validation = _gen_and_validate()
+                    if action == "repair_topology":
+                        import iris
+                        connection = iris_connector.get_connection()
+                        try:
+                            repaired_native = iris.createIRIS(connection)
+                            repaired_group = next(
+                                g for g in groups if g["source_id"] == fix["source_id"]
+                                and g["target_id"] == fix["target_id"])
+                            for c in outcome["topology"]["components"]:
+                                if (c.get("name") in repaired_group.get("_own_names", [])
+                                        and c.get("type") == "FHIRService"):
+                                    destination = next(
+                                        (s["value"] for s in c.get("settings") or []
+                                         if s.get("name") == "TargetConfigNames"
+                                         and s.get("target") == "Host"), None)
+                                    if destination:
+                                        repaired_native.set(
+                                            destination, "^demo.Config", "bp_target", c["name"])
+                        finally:
+                            connection.close()
+                    save_fhir_runtime_config(
+                        outcome["topology"],
+                        next((g.get("target_config") for g in groups
+                              if g["target_type"] == "FHIR"), None),
+                        mappings=[m for g in groups if g["target_type"] == "FHIR"
+                                  for m in g.get("mappings") or []],
+                        source_id=next((g.get("source_id") for g in groups
+                                       if g["target_type"] == "FHIR"), None))
+                return outcome
+
+            def _revalidate_tool(candidate):
+                nonlocal message_checkpoint
+                if repaired_groups:
+                    message_checkpoint = pipeline_validator.latest_message_id()
+                r, v = _gen_and_validate(candidate)
+                if r == "OK" and repaired_groups:
+                    own_names = [name for g in groups
+                                 if (g["source_id"], g["target_id"]) in repaired_groups
+                                 for name in g.get("_own_names") or []]
+                    effect = pipeline_validator.check_repair_effect(own_names, message_checkpoint)
+                    v.setdefault("results", {})["repair_effect"] = effect
+                    if not effect["ok"]:
+                        v["ok"] = False
+                        v.setdefault("issues", []).extend(
+                            {"check": "repair_effect", **i} for i in effect["issues"])
+                        v["error_count"] = int(v.get("error_count") or 0) + len(effect["issues"])
+                return r, v
+
+            c2_report = validate_agent.repair_pipeline_errors(
+                topology, validation,
+                context={
+                    "source_types": _src_types,
+                    "target_types": _tgt_types,
+                    "production": "demo.DataflowProduction",
+                    "pipeline_categories": [
+                        str(g.get("_category") or "") for g in groups],
+                    "pipeline_groups": [{
+                        "source_id": g.get("source_id"), "target_id": g.get("target_id"),
+                        "category": g.get("_category"),
+                        "component_names": g.get("_own_names") or [],
+                        "bp_mode": (g.get("_bp_meta") or {}).get("bp_mode"),
+                        "mapping_ids": [m.get("id") for m in g.get("mappings") or []],
+                        "mapping_checks": [
+                            {"check": i.get("check"), "severity": i.get("severity")}
+                            for i in pipeline_validator.run_transformation_validation(
+                                g.get("mappings") or [], c1_assets(g.get("source_id")),
+                                c1_target_models(g.get("mappings") or [])).get("issues") or []],
+                    } for g in groups],
+                },
+                regenerate_and_validate=_revalidate_tool,
+                generation_result=result,
+                execute_repair_tool=_execute_tool)
+            topology = c2_report["topology"]
+            validation = c2_report["validation"]
+            result = c2_report["generation_result"]
+            validation["c2"] = {
+                "status": c2_report["status"],
+                "attempt_limit": c2_report["attempt_limit"],
+                "attempts": c2_report["attempts"],
+                "message": c2_report.get("message", ""),
+                "evidence": c2_report.get("evidence") or {},
+            }
+            if c2_report["status"] == "failed":
+                c2_issue = {
+                    "check": "c2_pipeline_repair",
+                    "severity": "error",
+                    "item": "runtime",
+                    "message": c2_report.get("message") or
+                               "C2 未能解决管道阻断故障",
+                }
+                validation.setdefault("issues", []).append(c2_issue)
+                validation["ok"] = False
+                validation["error_count"] = int(validation.get("error_count") or 0) + 1
+                logger.error("C2 管道修复失败: %s", c2_issue["message"])
+
+        # 生成后所有阻断故障共用 C2 预算，不在循环外隐式调用修复或额外重建。
+        _repair_with_c2()
         if result != "OK" or not validation.get("ok"):
             try:
                 _emsg = "；".join([i.get("message", "") for i in validation.get("issues", [])
@@ -2194,14 +2423,14 @@ def generate_multi_pipelines(pipelines: list[dict], *, strict_terms: bool = Fals
                 logger.warning("多管道经验沉淀失败: %s", _se)
         # 术语覆盖**复核**（只读盘点）：运行期由共享 BO 实时查术语服务器；缺映射进"待办清单"，
         # 只作验证告警（默认降级口径，不阻断、不写缓存）
-        term_summary: dict = {}
+        term_summary_result: dict = {}
         if result == "OK":
             try:
-                term_summary = term_summary(all_mappings, topology, validation)
+                term_summary_result = term_summary(all_mappings, topology, validation)
             except Exception as _tc:  # noqa: BLE001 - 复核异常也显式报告（不影响生成结果）
                 logger.warning("多管道术语复核异常（不影响生成）: %s", _tc)
-                term_summary = {"ok": False, "error": str(_tc),
-                                "note": "术语复核异常；运行期由共享 BO 实时查询（缺映射会降级）"}
+                term_summary_result = {"ok": False, "error": str(_tc),
+                                       "note": "术语复核异常；运行期由共享 BO 实时查询（缺映射会降级）"}
 
         # 配置收敛：生成成功 = Production 已**整份替换**，本次之外的 `bp` / `bp_target` 登记
         # 都指向不存在的组件（死配置：诊断噪音 + 悬空引用隐患）。保留本次的 BP / 源 BS、
@@ -2220,7 +2449,7 @@ def generate_multi_pipelines(pipelines: list[dict], *, strict_terms: bool = Fals
         # 同一身份重复生成 = 更新同一管道（不新增）。生成失败则登记为失败原因（不写成功记录）。
         instance_records: list[dict] = []
         instance_error = ""
-        if result == "OK":
+        if result == "OK" and validation.get("ok"):
             try:
                 prod_items = pipeline_validator.production_items()
                 for _g in groups:
@@ -2243,6 +2472,7 @@ def generate_multi_pipelines(pipelines: list[dict], *, strict_terms: bool = Fals
                         ai_components=_g.get("ai_components") or [],
                         is_sql2fhir=bool(_g.get("_sql2fhir")),
                         layout=(_g.get("_layout") if _g.get("_sql2fhir") else None),
+                        bp_meta=_g.get("_bp_meta"),
                         source_config=_g.get("source_config") or None,
                         target_config=_g.get("target_config") or None,
                         signature=_g.get("_sig_in") or inc_input_signature(_g),
@@ -2264,13 +2494,14 @@ def generate_multi_pipelines(pipelines: list[dict], *, strict_terms: bool = Fals
 
         return {"result": result, "production": "demo.DataflowProduction",
                 "validation": validation,
+                "c2": c2_report,
                 # BP 生成链（Plan → Execute）审计：bp_mode / 计划方法清单 / 单测汇总
                 "bp_mode": [dict({"category": _g.get("_category")}, **(_g.get("_bp_meta") or {}))
                             for _g in groups if _g.get("_bp_meta")],
                 # 许可预算：本次生成让旧管道组件让出的许可单元（社区版仅 8 个；避免"启动即超限"）
                 "license_budget": license_budget,
                 # 术语覆盖复核 + **待办清单**（运行期由共享 BO 实时查；缺映射默认降级、不阻断）
-                "term_summary": term_summary,
+                "term_summary": term_summary_result,
                 "term_todo": _term_todo,
                 # 术语服务器目录/盘点摘要（唯一事实源：覆盖了多少码、缺什么、源库命名空间）
                 "term_catalog": term_catalog_brief(_tgate.get("gate") or {}),

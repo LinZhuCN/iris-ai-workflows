@@ -414,7 +414,7 @@ def wait_for_messages_settle(timeout: int = 60, interval: int = 5,
         waited += interval
 
 
-def check_smoke(limit: int = 10) -> dict:
+def check_smoke(limit: int = 10, after_id: int | None = None) -> dict:
     """运行级 smoke test：最近消息流转是否全部 Completed。
 
     注意区分「运行出错」（Error/Aborted → 判失败）与「尚未处理完」（Queued/InProgress/
@@ -426,6 +426,8 @@ def check_smoke(limit: int = 10) -> dict:
     try:
         data = iris_connector.class_method_value("demo.PipelineQuery", "GetLogs", limit)
         items = json.loads(data or "[]")
+        if after_id is not None:
+            items = [item for item in items if int(item["id"]) > after_id]
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "level": "error",
                 "message": f"消息检查失败: {exc}", "items": []}
@@ -808,39 +810,81 @@ def classify_runtime_error(text: str) -> dict:
     code_kw = ("SUBSCRIPT", "INVALID OREF", "UNDEFINED", "CLASS DOES NOT EXIST", "MPP5377",
                "QUIT argument", "PROPERTY DOES NOT EXIST", "PYTHON EXCEPTION", "INVALID CLASS",
                "ILLEGAL VALUE", "Invalid command",
-               # 实测缺口：对象方法不存在是**运行期**错误（编译期不报），原先未列入 → BP 修复不触发
+               # 对象方法不存在是**运行期**错误（编译期不报），归为代码型故障供 C2 评估
                "METHOD DOES NOT EXIST", "ErrBPTerminated")
     ref_kw = ("MalformedRelativeReference", "RelativeReference", "InvalidReference")
     if any(k in t for k in ref_kw):
         # 实测 2026-09-18：BP 从 layout **顶层** 读 refs（不存在该键）+ $IsObject 兜底成空数组
         # → 引用注入被静默跳过 → Bundle 里 subject/encounter 仍是裸源键 → FHIR 拒收。
-        # 这是 **BP 代码**缺陷（不是映射缺陷）→ 必须回喂 BP 方法修复，而不是改映射。
+        # 这是 **BP 代码**缺陷（不是映射缺陷）；拓扑设置无法表达的代码修改必须明确失败。
         return {"kind": "bp_code",
-                "advice": "引用注入未生效（BP 未按 layout.bundle.refs 写 urn:uuid: 引用，"
-                          "常见于读成顶层 layout.refs 并用空数组兜底）→ method_updates 修复 BP"}
+                "advice": "疑似聚合 BP 引用注入缺陷；需先核对故障方法归属，"
+                          "生成类自身方法可交 C2 单轮方法工具，继承引擎缺陷必须明确失败"}
     if any(k in t for k in schema_kw):
         return {"kind": "fhir_schema",
                 "advice": "修正字段映射/转换指令（C1 update_mapping）后重新生成"}
     if any(k in t for k in code_kw):
-        return {"kind": "bp_code", "advice": "修正 BP 方法（method_updates 增量修复）后重新编译"}
+        return {"kind": "bp_code", "advice": "C2 核对生成方法/布局/继承引擎归属；"
+                "生成方法可受控修复，平台父类与无明确定位的问题必须明确失败"}
     return {"kind": "other", "advice": "需结合消息/日志进一步定位"}
 
 
-def collect_runtime_errors(limit: int = 10, minutes: int = 10) -> list[dict]:
-    """收集**最近 minutes 分钟**内的运行期错误（Ens 事件日志 Type=Error），含分类建议。"""
+def latest_runtime_error_id() -> int:
+    """读取运行期错误日志的当前最大 ID，供每轮生成隔离本轮新错误。"""
+    rows = iris_connector.query(
+        "SELECT MAX(ID) FROM Ens_Util.Log WHERE Type='2'")
+    return int(rows[0][0] or 0) if rows else 0
+
+
+def latest_message_id() -> int:
+    rows = iris_connector.query("SELECT MAX(ID) FROM Ens.MessageHeader")
+    return int(rows[0][0] or 0) if rows else 0
+
+
+def check_repair_effect(component_names: list[str], after_id: int) -> dict:
+    """修复运行错误后必须有本组新 Completed 路径；历史成功/空日志不算恢复。"""
+    names = set(component_names)
+    rows = iris_connector.query(
+        "SELECT SourceConfigName, TargetConfigName, Status FROM Ens.MessageHeader WHERE ID > ?",
+        [after_id])
+    observed = set()
+    failed = set()
+    for source, target, status in rows:
+        edge = {str(source), str(target)}
+        if not edge <= names:
+            continue
+        involved = edge
+        if int(status) == 9:
+            observed.update(involved)
+        elif int(status) in (7, 8):
+            failed.update(involved)
+    missing = sorted(names - observed)
+    ok = bool(names) and not missing and not failed
+    return {"ok": ok, "after_message_id": after_id,
+            "observed_components": sorted(observed), "missing_components": missing,
+            "issues": [] if ok else [{
+                "severity": "error", "item": "repair_effect",
+                "message": "修复后尚未证明待修组的新消息路径完成；不自动重放未知幂等性的业务消息",
+            }]}
+
+
+def collect_runtime_errors(limit: int = 10, minutes: int = 10,
+                           after_id: int | None = None) -> list[dict]:
+    """收集近期运行期错误；可按日志 ID 仅取给定检查点之后新增的错误。"""
     import datetime as _dt
     since = _dt.datetime.now() - _dt.timedelta(minutes=max(1, int(minutes)))
-    try:
-        rows = iris_connector.query(
-            f"SELECT TOP {int(limit)} TimeLogged, ConfigName, Text FROM Ens_Util.Log "
-            "WHERE Type='2' AND TimeLogged > ? ORDER BY ID DESC", [since])
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("运行期错误收集失败: %s", exc)
-        return []
+    sql = (f"SELECT TOP {int(limit)} ID, TimeLogged, ConfigName, Text "
+           "FROM Ens_Util.Log WHERE Type='2' AND TimeLogged > ?")
+    params: list = [since]
+    if after_id is not None:
+        sql += " AND ID > ?"
+        params.append(int(after_id))
+    sql += " ORDER BY ID DESC"
+    rows = iris_connector.query(sql, params)
     out = []
     for r in rows:
-        text = str(r[2] or "")
-        out.append({"time": str(r[0]), "config": str(r[1] or ""),
+        text = str(r[3] or "")
+        out.append({"id": int(r[0]), "time": str(r[1]), "config": str(r[2] or ""),
                     "text": text[:400], **classify_runtime_error(text)})
     return out
 
@@ -852,8 +896,10 @@ def run_pipeline_validation(topology: dict | None, source_type: str = "FHIR",
                             target_types: list[str] | None = None,
                             expect_targets: dict[str, int] | None = None,
                             effect_target_types: list[str] | None = None,
-                            effect_wait: int = 30) -> dict:
-    """数据管道专项验证（供管道验证-修复 Agent C2 使用）。
+                            effect_wait: int = 30,
+                            runtime_error_after_id: int | None = None,
+                            message_after_id: int | None = None) -> dict:
+    """数据管道事实检查（供生成编排与 C2 运行期修复使用）。
 
     覆盖：拓扑完整性 + 编译 + 启动 + 消息流转 + **目标落地效果**（FHIR/DB 计数）
     + **运行期错误分类**（fhir_schema / bp_code，供回喂对应 Agent）。
@@ -878,7 +924,7 @@ def run_pipeline_validation(topology: dict | None, source_type: str = "FHIR",
                    "level": "info" if _settle.get("settled") else "warning",
                    "message": f"等待消息处理 {_settle.get('waited')}s"
                               f"（未完成 {_settle.get('pending')} 条）"},
-        "smoke": check_smoke(),
+        "smoke": check_smoke(after_id=message_after_id),
         # 子表查询派发事实检查（聚合 BP 是否真的调过查询 BO）——防"消息全 Completed 但 Bundle 缺资源"
         "query_dispatch": check_query_dispatch(topology, wait_seconds=20),
     }
@@ -897,17 +943,18 @@ def run_pipeline_validation(topology: dict | None, source_type: str = "FHIR",
                                     "counts": eff.get("counts", {}),
                                     "message": f"目标计数: {eff.get('counts', {})}"}
     # 运行期错误（带分类建议，供回喂对应 Agent）
-    # 只看最近 3 分钟的运行期错误：生成/重启后立即校验，3 分钟足以覆盖本次产生的错误，
-    # 避免把「生成之前的历史错误」当成本次错误去触发 BP 修复循环
-    _rerr = collect_runtime_errors(8, minutes=3)
+    # 只看最近 3 分钟且 ID 大于生成前检查点的运行期错误，避免把历史日志
+    # 或前一轮已处理的错误重复当成本轮故障。
+    _rerr = collect_runtime_errors(8, minutes=3, after_id=runtime_error_after_id)
     # 事实检查发现"BP 从未发起子表查询"（消息全 Completed 但 Bundle 缺资源）→ 归 bp_code，
-    # 触发既有修复通道（repair_from_runtime_errors 的 method_updates 增量修复）
+    # 触发 C2 的有界设置修复；运行期错误仍先作为诊断发现保留为 warning，
+    # C2 未能解决时由生成编排提升为阻断错误。
     _qd = results.get("query_dispatch") or {}
     for _it in (_qd.get("issues") or []):
         if _it.get("severity") == "error":
             _rerr.append({"kind": "bp_code", "config": "PatientTxProcess",
                           "text": str(_it.get("message", "")),
-                          "advice": "聚合 BP 代码缺陷（子表查询未发起/错误被吞）：method_updates 增量修复"})
+                          "advice": "核对聚合布局与故障方法归属；无生成方法定位不可猜测修改源码"})
     if _rerr:
         kinds = sorted({e.get("kind", "") for e in _rerr})
         results["runtime"] = {
@@ -1354,4 +1401,3 @@ def check_connection(sources: list[dict] | None = None,
             issues.append({"severity": "error", "item": item,
                            "message": f"{item} 不可达/未配置: {detail}"})
     return {"ok": not issues, "issues": issues, "results": results}
-

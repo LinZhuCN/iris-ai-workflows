@@ -295,6 +295,7 @@ def upsert_from_generation(*, source_id: str | None = None, target_id: str | Non
                            ai_components: list[dict] | None = None,
                            is_sql2fhir: bool = False,
                            layout: dict | None = None,
+                           bp_meta: dict | None = None,
                            source_config: dict | None = None,
                            target_config: dict | None = None,
                            signature: str | None = None,
@@ -386,6 +387,7 @@ def upsert_from_generation(*, source_id: str | None = None, target_id: str | Non
                           if isinstance(c, dict)],
         "is_sql2fhir": bool(is_sql2fhir or rec.get("is_sql2fhir")),
         "layout": layout if layout is not None else rec.get("layout"),
+        "bp_meta": bp_meta if bp_meta is not None else rec.get("bp_meta") or {},
         # 源/目标配置（供"未提交的既有管道自动并入"时忠实重建：DB 列清单 / FHIR 端点 / SOAP 服务）
         "source_config": source_config if source_config is not None else rec.get("source_config"),
         "target_config": target_config if target_config is not None else rec.get("target_config"),
@@ -748,4 +750,3 @@ def sync_from_production(production_items: list[dict] | None = None) -> dict:
     return {"created": created, "updated": updated, "instances": records,
             "skipped": sorted(skipped),
             "categories": sorted(by_cat), "production_items": prod_items}
-

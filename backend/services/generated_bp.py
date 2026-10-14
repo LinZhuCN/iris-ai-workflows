@@ -9,6 +9,7 @@
   ④ 仍失败 = 面向用户明确失败（不静默用规则/预置替换）。
 """
 
+import hashlib
 import json
 import logging
 import re
@@ -178,7 +179,7 @@ def static_check_generated_bp(bp: dict | None) -> list[str]:
                 "用 `Extends Ens.BusinessProcess` 或 `##class(demo.TransformProcess).BuildFHIRResource(...)` "
                 "静态调用都会失败）")
         for tok in _FORBIDDEN:
-            if tok in source:
+            if tok.lower() in source.lower():
                 errors.append(f"source 含被禁内容: {tok}")
         # 未定义的 `..Helper(` 调用（实测缺陷 2026-09-18）：BP 调用了自己没定义的助手方法
         # （如 `..GetMappingFms`）→ 编译报 `MPP5376 Method or Property 'X' does not exist`
@@ -284,8 +285,9 @@ def extract_method(source: str, name: str) -> str:
     depth = 0
     started = False
     for j in range(start, len(lines)):
-        depth += lines[j].count("{") - lines[j].count("}")
-        if "{" in lines[j]:
+        code = _strip_strings_comments(lines[j])
+        depth += code.count("{") - code.count("}")
+        if "{" in code:
             started = True
         if started and depth <= 0:
             return "\n".join(lines[start:j + 1])
@@ -413,6 +415,100 @@ def repair_from_runtime_errors(*, mappings: list[dict], source_type: str, target
             "message": f"method_updates 修复在 {max_rounds} 轮内未通过编译"}
 
 
+def repair_generated_methods_once(*, class_name: str, bp_mode: str,
+                                  evidence: dict, mappings: list[dict],
+                                  components: list[dict], layout: dict,
+                                  component_name: str) -> dict:
+    """C2 方法修复工具：单轮 AI + 静态准入 + 编译，不修改继承引擎。"""
+    if class_name != BP_CLASS_NAME or bp_mode not in ("plan", "full", "full_fallback"):
+        return {"ok": False, "message": "只允许修复已知 plan/full 生成类；engine/平台父类不可修改"}
+    source = get_generated_source(class_name)
+    if not source.strip() or re.search(r"\.\.ProcessFHIRBundle\s*\(", source, re.I):
+        return {"ok": False, "message": "生成源码缺失或为薄引擎适配类，拒绝方法修复"}
+    own_methods = set(re.findall(r"^\s*(?:Class)?Method\s+(\w+)\s*\(", source, re.M))
+    locations = evidence.get("code_locations") or []
+    implicated = {
+        location.split("+", 1)[0] for location in locations
+        if location.split("^", 1)[-1] == class_name + ".1"
+    }
+    if not implicated or not implicated <= own_methods:
+        return {"ok": False, "message": "无生成类自身方法的明确故障定位，拒绝猜测修改"}
+    feedback = json.dumps({
+        "evidence": evidence, "class_name": class_name,
+        "current_source": source, "layout": layout,
+        "allowed_methods": sorted(implicated),
+        "instruction": "只修 allowed_methods；保留方法签名，返回 generated_bp.method_updates",
+    }, ensure_ascii=False)
+    proposal = llm_client.recommend_pipeline(
+        mappings, source_type="SQL", target_type="FHIR",
+        available_components=components, bp_compile_feedback=feedback, bp_patch_mode=True)
+    bp = proposal.get("generated_bp") or {}
+    updates = bp.get("method_updates")
+    if bp.get("class_name") != class_name or not isinstance(updates, list) or not updates:
+        return {"ok": False, "message": "Agent B 未返回指定类的方法补丁"}
+    candidate = source
+    seen = set()
+    for update in updates:
+        if not isinstance(update, dict):
+            return {"ok": False, "message": "方法补丁必须为对象"}
+        name, body = update.get("name"), update.get("source")
+        if name not in implicated or name in seen or not isinstance(body, str):
+            return {"ok": False, "message": "方法补丁越过故障方法范围或重复"}
+        seen.add(name)
+        errors = method_source_issues(name, body, known_methods=own_methods, parent_api=PARENT_API)
+        old = extract_method(source, name)
+        if extract_method(body, name).strip() != body.strip():
+            errors.append("方法声明之外不得携带其他类成员或源码")
+        if body.split("{", 1)[0].strip() != old.split("{", 1)[0].strip():
+            errors.append("不得改变方法签名")
+        if errors:
+            return {"ok": False, "message": "方法补丁静态准入失败", "checks": errors}
+        candidate = replace_method(candidate, name, body)
+    errors = static_check_generated_bp({"class_name": class_name, "source": candidate})
+    if errors:
+        return {"ok": False, "message": "补丁整类静态准入失败", "checks": errors}
+    if candidate == source:
+        return {"ok": False, "message": "方法补丁未产生变化"}
+    from backend.services import pipeline_validator
+    stopped = pipeline_validator.set_items_enabled([component_name], False)
+    if not stopped.get("ok"):
+        restored_host = pipeline_validator.set_items_enabled([component_name], True)
+        return {"ok": False, "message": "生成 BP 主机未可靠停止，拒绝编译",
+                "terminal": not restored_host.get("ok")}
+
+    def restore_after_failure(compile_message=""):
+        from backend.services import validate_agent
+        compile_evidence = validate_agent._c2_evidence(
+            {}, {"results": {"compile": {"ok": False, "message": compile_message}}},
+            "ERROR", [])
+        try:
+            restored = _write_and_compile(class_name, source)
+            host = pipeline_validator.set_items_enabled(
+                [component_name], True) if restored.get("ok") else {"ok": False}
+        except Exception:
+            logger.exception("C2 方法补丁失败后的源码/主机恢复异常")
+            return {"ok": False, "restored": False, "terminal": True,
+                    "message": "方法补丁回滚失败，BP 保持停用，需人工处理"}
+        return {"ok": False, "message": "方法补丁编译失败",
+                "restored": bool(restored.get("ok")), "terminal": not host.get("ok"),
+                "compile_evidence": {k: compile_evidence[k]
+                                     for k in ("error_codes", "code_locations")}}
+
+    try:
+        result = _write_and_compile(class_name, candidate)
+    except Exception:
+        logger.exception("C2 方法编译执行异常")
+        return restore_after_failure()
+    if not result.get("ok"):
+        return restore_after_failure(str(result.get("message") or ""))
+    host = pipeline_validator.set_items_enabled([component_name], True)
+    if not host.get("ok"):
+        return {"ok": False, "terminal": True, "message": "补丁编译通过但 BP 主机恢复失败"}
+    return {"ok": True, "class_name": class_name, "methods": sorted(seen),
+            "artifact_hash": hashlib.sha256(candidate.encode()).hexdigest(),
+            "message": "生成方法单轮补丁编译通过，等待运行复验"}
+
+
 def method_source_issues(name: str, source: str, *, known_methods: set[str],
                          parent_api: set[str]) -> list[str]:
     """单个方法源码的静态准入（Plan 层用，范围比整类检查更聚焦）。返回问题清单（空=通过）。"""
@@ -429,7 +525,7 @@ def method_source_issues(name: str, source: str, *, known_methods: set[str],
     if re.search(r"^\s*Class\s+demo\.", src, re.M):
         issues.append("不要输出类头（只输出一个方法）")
     for tok in _FORBIDDEN:
-        if tok in src:
+        if tok.lower() in src.lower():
             issues.append(f"含被禁内容: {tok}")
     bad_quit = try_block_quit_value_lines(src)
     if bad_quit:
