@@ -1,0 +1,12 @@
+services:
+  iris:
+    environment:
+      TRIAGE_MODE: real
+      TRIAGE_PROVIDER_URL: ${LLM_BASE_URL:?Set LLM_BASE_URL in the local .env}
+      TRIAGE_MODEL: ${LLM_MODEL:?Set LLM_MODEL in the local .env}
+      TRIAGE_API_KEY: ${LLM_API_KEY:?Set LLM_API_KEY in the local .env}
+    volumes:
+      - ./data/real:/dur
+  gateway:
+    ports: !override
+      - "127.0.0.1:52779:80"

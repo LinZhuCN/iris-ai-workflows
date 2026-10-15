@@ -1,0 +1,4 @@
+Set sc=$SYSTEM.OBJ.Load("/contest/Installer.cls","ck")
+If $SYSTEM.Status.IsError(sc) Do $SYSTEM.Status.DisplayError(sc)
+If '$SYSTEM.Status.IsError(sc) Do ##class(User.ContestInstaller).Run()
+Halt

@@ -1,71 +1,30 @@
-# Python
-__pycache__/
-*.pyc
-.venv/
-
-# 环境变量（含 API Key，绝不入库）；只入库无值模板 .env.example
+# Local credentials and provider configuration
 .env
 .env.*
 !.env.example
+/iris/license/*.key
 
-# 前端
-node_modules/
-dist/
-*.local
+# IRIS databases and generated Gateway credentials
+/contest/data/
+/hipaa-documents/
 
-# IRIS 数据持久化（仅保留目录占位）
-data/iris/*
-!data/iris/.gitkeep
-
-# 其他
+# Local Python and editor artifacts
+__pycache__/
+*.pyc
+.venv/
+.vscode/
+!.vscode/
+.vscode/*
+!.vscode/mcp.json
 .DS_Store
 *.log
-
-# AI 清理/备份工作区（备份 tar、删除清单、docker 守卫审计日志；不入库）
-.trash/
-
-# 知识库软链（避免搜索/版本控制跟随到大量 md）
-knowledge/
-
-# JDBC 驱动 jar（二进制）
-jdbc/
-
-# 内部文档
-docs/
-
-# 个人知识库软链（不纳入版本库）
-knowledge
-data/embedding-model/*
-!data/embedding-model/.gitkeep
-
-# 术语服务器数据目录（IRIS 数据库本体不入库，仅保留目录占位）
-data/iris-terminology/*
-!data/iris-terminology/.gitkeep
-
-# RxNorm 向量化中间产物与日志（可随时重新生成，不纳入版本库）
-data/rxnorm_vec_*.jsonl
-data/rxnorm_vec_run.log
-
-# 测试数据工具箱的脚本副本（权威版本在仓库 tools/，不为副本做版本管理；
-# 同步方式见 tools/datakit/README.md 第七节；run.sh 与 README.md 仍入库）
-tools/datakit/host/
-tools/datakit/container/
-
-# 后台进程 / 重定向日志（不纳入版本库）
-nohup.out
 *.out
 
-# ===== 暴露治理（2026-09-27）===== (注：run_rxnorm_vec.sh 已于同日恢复纳入，见 A+B+C 提交)
-# 以下为开发/内部产物：不随公开仓库分发（本地保留，仅移出版本控制）
+# Personal knowledge and local agent state
+knowledge/
 AGENTS.md
 WORKLOG.md
 .clinerules/
-.vscode/
-export_validation_issues.py
-
-# 术语素材：**随仓库分发**（2026-09-27 项目所有者决定纳入，用于术语服务器初始化与
-# CLINIC 演示数据生成；来源与条款见 NOTICE）。成品映射种子见 data/seeds/。
-# 如需再次撤出：改回排除 data/terms-inbox/*（保留 .gitkeep）与 data/testsets/。
-
-# 发布素材（文章/图/二维码）：不纳入版本控制，仅本地发布工作区
+.trash/
+docs/
 articles/

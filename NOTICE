@@ -1,20 +1,41 @@
-DataPipelineDemo — AI-Driven Data Automation Demo
+IRIS AI Hub Interoperability Workflows
+Derived from DataPipelineDemo — AI-Driven Data Automation Demo
 Copyright 2026 zlnick
 
 Licensed under the Apache License, Version 2.0 (see LICENSE).
 
-This repository is a demonstration project; it is NOT an official InterSystems product.
-"InterSystems", "IRIS" and "IRIS for Health" are trademarks of InterSystems Corporation;
-this project references them for identification only and claims no trademark rights.
+This fork adds the AI Hub TRIAGE workflow and its reproducible deployment,
+tests and audit implementation. The inherited pipeline-generation application,
+terminology submodule, embedding service and terminology datasets have been
+removed from the current distribution; earlier versions remain in Git history.
 
-Third-party / not distributed here:
-- termsrv/ (submodule) is a trimmed fork of the open-source intersystems-ib/iris-terminology-server
-  (https://github.com/intersystems-ib/iris-terminology-server, MIT licensed), written by Luis Angel Pérez
-  Ramos (https://openexchange.intersystems.com/package/iris-terminology-server). See that upstream repo and the
-  fork (https://github.com/zlnick/iris-terminology-server) for their own license/copyright notices, which must be
-  retained. All credit for the terminology server itself belongs to its author; thanks to him.
-- The InterSystems JDBC driver is not distributed (tools/fetch_jdbc_jar.sh extracts it from the official image).
-- Terminology material under data/terms-inbox/ (ICD-10 codes/names, NRDL & CBIH Chinese drug catalogues) is
-  redistributed here for demo initialization; it originates from the respective public catalogues
-  (GB/T 14396-2016 ICD-10, China NRDL, CBIH) and remains subject to their own terms. Loaded by
-  tools/term_data_load.sh (idempotent). Mappings under data/seeds/ are derived artefacts of this project.
+Historical third-party attribution retained from the upstream notice:
+- The former termsrv submodule was a trimmed fork of the MIT-licensed
+  intersystems-ib/iris-terminology-server, written by Luis Angel Pérez Ramos.
+  Upstream: https://github.com/intersystems-ib/iris-terminology-server
+  Former fork: https://github.com/zlnick/iris-terminology-server
+  Credit for that terminology server belongs to its author. Consult the
+  historical component's own license and copyright notices if reusing it.
+- Former terminology materials referenced GB/T 14396-2016 ICD-10, China NRDL
+  and CBIH catalogues, subject to their respective terms.
+
+Project Copilot Interop Skills adapt guidance from:
+  https://github.com/intersystems-ib/iris-interop-skills
+  Revision 00faab5be2915357dd20941f4b7990a65e73523c
+  Copyright (c) 2026 Pierre-Yves Duquesnoy, MIT License.
+  See contest/dev/interop-skills-LICENSE.
+
+The hipaa-demo-knowledge package contains attributed HHS/eCFR/NIST government-source
+evidence, project-authored LLM synthesis and a synthetic demonstration policy.
+It is not an HHS publication or legal advice. Extracted official materials are
+not relicensed wholesale under the project's Apache-2.0 license; original
+notices and applicable third-party rights remain. Historical explanations and
+unreviewed materials are included in prepared text but excluded from default
+retrieval exports. The full local binary source
+archive is not distributed. See hipaa-demo-knowledge/README.md for provenance.
+
+This repository is a demonstration project, not an official InterSystems
+product. "InterSystems", "IRIS" and "IRIS for Health" are trademarks of
+InterSystems Corporation, referenced for identification only.
+No InterSystems image, license key, JDBC driver or model credentials are
+distributed with this project.

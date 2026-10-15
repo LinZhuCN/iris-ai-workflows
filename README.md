@@ -1,685 +1,109 @@
-# AI 数据自动化转换 Demo
+# IRIS AI Hub Interoperability Workflows
 
-> **[English version → README.en.md](README.en.md)**
+[Detailed English guide](./README.en.md) · [中文说明](./README.zh-CN.md)
 
-> **TL;DR**：`bash tools/setup.sh`（一条命令起全栈）→ `python3 tools/e2e_ui_flow.py`（一键复刻完整演示）。
-> 前置三件套：**Docker + Compose**、**InterSystems 容器仓库免费账号**（用于拉 IRIS 镜像）、**自备 LLM key**（AI 功能必需）；Windows 建议 WSL2 + Docker Desktop。
+A contest-focused InterSystems IRIS application demonstrating bounded AI Hub
+decisions inside Interoperability workflows. The implemented triage workflow
+uses an actual `%AI.Agent` and read-only fact tools; IRIS validates policy,
+executes routing and records the outcome.
 
-基于 **InterSystems IRIS for Health** 与 **AI** 的数据自动化转换演示平台。
+The next product stage is an independently deployed monitoring Production,
+with pipeline observation components, failure diagnosis and sampled privacy/
+security review. That monitoring application is not yet implemented; the
+current runtime remains the verified message-triage demonstration.
 
-**源 = 2 种**（FHIR 接口 / SQL 表）、**目标 = 3 种**（DB 表 / SOAP 服务 / FHIR 仓库），可任意组合（也支持同一 Production 内多管道并存）。
-平台**自动分析源/目标接口**（FHIR Profile / SQL 列结构 / WSDL 操作语义）并登记数据资产；由 **AI（OpenAI 兼容 LLM）** 推荐「资产 → 目标」匹配与字段映射，用户确认后**自动生成 IRIS 互操作性生产管道（Production）** 完成数据投放；中文诊断/药品经**术语服务器**做代码转换（术语映射的事实源）。
+## Quick start
 
-> 界面**中英双语**：中文（默认，`/`）与英文（`/en`），顶部栏可切换语言；站内跳转保持当前语言。
+Requirements: Docker Compose 2.24.4+, Python 3, an authorized AI Hub EAP image
+and a valid local InterSystems license. Tested on ARM64 IRIS for Health
+`2026.3.0AI.154.0`. This prerelease environment is not for production.
 
-```
-FHIR / SQL 源 → 接口分析(Profile / 列结构) → 登记数据资产
-                          ↘                          ↙
-              AI 匹配「资产 → 目标」+ 字段映射 → 用户确认
-                          ↘                          ↙
-     生成转换计划 → IRIS Production 管道 → DB 表 / SOAP 服务 / FHIR 仓库
-```
+Place your own license at `iris/license/iris.key`, or set `IRIS_LICENSE_PATH`
+to its absolute path, then run from the repository root:
 
-## 功能清单
-
-### ✨ AI 决策范围：什么由大模型决定、什么不是
-
-平台的「**决策与生成**」全部由运行时大模型（LLM）完成，代码只负责**读取事实、参数化、校验、保底补齐**，绝无写死的映射/拓扑/结论模板：
-
-| 能力 | AI（LLM）决策 | 代码只做 |
-| --- | --- | --- |
-| 接口 / 数据源分析 | 资产业务语义、轮询键建议、目标写/读方向、运行契约解读 | 读取事实（Capability/列/WSDL）、写回 |
-| 数据映射 | 资产→目标匹配与字段映射（支持 `concat()` 等表达式） | 结构归一、完整性校验 |
-| 数据管道 | 组件构成与顺序、命名（含多管道逐组） | 注册表补 className/settings、必需件补齐 |
-| 验证与修复 | 判定问题是否实质 + 选择修复动作 | 事实检查工具、机械剔除、显式降级 |
-
-**AI 驱动红线**：LLM 失败 = 面向用户的明确失败（缺 key / 超时 / 输出不合规，均带 Agent 名报错），**绝不静默改用规则结果**；规则/注册表仅做 ①参数化 ②完整性校验 ③保底补齐（补齐在返回标注 `ai_supplemented`）。每次生成都带可审计的 `ai` 信息（driven / components / supplemented / c2_rule_rebuilt），LLM 调用留 token 日志。
-
-### ✨ AI 验证与自动修复（验证-修复闭环）
-
-- **C1 转换验证-修复**：映射确认后/管道生成前，用事实检查 + LLM 判断修正字段映射（列存在性/路径/语义错配）。
-- **C2 统一故障入口**：单、多管道共用事实检查管线；Production 生成后的拓扑/编译/启动/消息/目标落地阻断故障，以及实际运行期错误，统一进入 C2。生成前的连接门禁、C1 和 BP 初次生成仍走原流程，不属于本预算。所有生成后修复共用 `C2_MAX_ATTEMPTS` 决策预算（默认 3），不在循环外额外重建。
-- **单轮修复工具（完善阶段 2）**：C2 可按唯一的 `source_id + target_id` 调用 C1 `repair_mapping`（按 target 增量合并并校验，不改变映射身份）、Agent B `repair_topology`（既有组件的注册类名与源 BS→本组 BP 派发修正），或 `repair_bp`（plan/full 生成类自身、明确定位的故障方法）。每次工具最多一次 LLM 调用，随后共用管道复验；仍保留白名单运行参数修正与受控重建。不允许任意增删组件、改查询/连接/凭据/平台源码。engine 薄 BP 的父类逻辑、无明确方法定位、跨管道共用生成类均明确拒绝源码修复。BP 补丁先静态准入，再停用对应主机、编译、恢复；编译失败回滚源码，回滚/主机恢复失败立即终止并报告。
-- **循环与审计**：无效提议也计入预算；同一动作和产物已经失败时拒绝重复执行。AI 明确声明无法安全修复可提前终止，达到上限或 AI 调用异常也明确失败。脱敏证据含检查状态、技术错误码/方法位置、组件与管道归属、BP 模式、前轮工具结果，不发送原始业务日志或查询值。成功必须生成成功、验证通过且无运行错误；运行故障还要求待修组各组件出现修复后的新 Completed 消息路径，历史成功或空日志不能证明恢复。平台不自动重放幂等性未知的失败业务消息；没有新路径时明确报告尚未验证，不能宣称修好。目标值及真实故障恢复仍需端到端验收。仅沉淀已验证成功的修复经验，响应携带 `c2` 尝试记录与结构化证据。
-- **实境验证（2026-10-14）**：真实 C2 分别调度 Agent B 修不存在的 SQL 源类、C1 修缺失源列映射、方法 Agent 修隔离 full 模式样本的自定义 `OnRequest`，均经真实 IRIS 编译/启动及新源值的 DB/FHIR 落地核验。方法样本不代表 engine 父类可修；原生成源码已恢复。三源 × 三目标九方向重新生成并逐条造新源数据，值传导 9/9 通过。故障注入在服务层执行，未将它包装为浏览器点击验收；失败旧消息不自动重放。生成/复验保留消息历史，以本轮消息 ID 检查点隔离旧错误；C2 接收映射静态检查类别，C1 单轮工具接收实际映射与约束，工具目录按 BP 模式收窄。
-- **后续完整回归（2026-10-14）**：全量 HTTP 重新生成发现拓扑保存函数释放连接时误用变量名，导致 500；已修正，并补充实际配置写入函数成功/异常均关闭连接的单测。修后重新执行九组 AI 生成、九方向源值投递、新的 Agent A/C1 九组合推荐及增量复用验证；不可修父类故障也经真实 C2 明确拒绝。不会将既有 Production 的投递通过当作重新生成通过。
-- **编译检查的启停保护**：IRIS 重编译 Production 会重新导入 XData 的默认启停值；`CheckCompile` 现保留并恢复检查前各组件的 Enabled 状态，恢复失败显式返回失败，避免 C2 复验覆盖用户切换/许可调度状态。`tools/test_compile_preserves_enabled.py` 在真实 IRIS 上对比检查前后配置和运行作业状态，不以接口成功替代状态一致。
-- **增量免停机验证**：未变更请求的停机操作延后到确定需要重生成之后，避免先停 Production 再返回 `render_skipped=true`。回归同时核验返回标记、Production 运行标志和真实组件作业前后不变，不能只凭“跳过重建”字段判通过。
-- **同类别多实例**：增量启停一致性按管道实例的独有组件判定，不能把相同 Category 下不同源/目标的独立管道合并检查；一条启用、另一条停用是合法许可切换状态，不应误触发重建。
-- **可观察**：Pipelines 页「🧾 AI 审计日志」按钮展示每次生成的决策来源；backend 日志留每个 Agent 的 token 用量。
-- **知识闭环**：验证经验经**知识润色 Agent（LLM）**去重研读，导出为 Obsidian 知识库笔记，供人沉淀复用（`export_validation_issues.py`）。
-
-### ✨ 管道增量生成（以管道为单位）
-
-生成不再"每次全量重算"，而是**以数据管道为单位增量**：
-
-- **身份稳定**：同一 `(源数据源, 目标)` 恒为**同一条管道** —— 无论提交几次、Agent 选了哪个设计 Skill，
-  都只更新既有管道（不新增、不产生"两套实例"）。
-- **未变更即跳过**：输入（映射内容 / 源·目标契约）没变 → **复用已存组件定义、不重跑 Agent B、不重启 Production**
-  （响应 `unchanged=true` / `render_skipped=true`，界面提示"所有数据管道均已存在且未变更"）。
-- **只生成变更组**：界面只提交新增/变更的组；**未提交的既有管道按存储定义自动并入**（不会被"整份替换"清掉），
-  其运行态（启停 / 许可 / 扫描凭证）保持不变。
-- **重复提交免疫**：提交里出现同身份重复组时自动合并为一条，响应回报 `dup_merged`（可审计）。
-- **强制重建**：需要重新设计时打开界面 **「强制重新生成」**（`force=true`）。
-
-### ✨ AI 能力目录（Tools / Workflows / Skills / Agents + Skill 目录）
-
-「AI Agents」页按业界口径（Anthropic《Building effective agents》）把平台能力**归类并逐条给出依据**：
-
-| 归类 | 含义 | 本项目条目 |
-| --- | --- | --- |
-| **Tool** | 确定性、**无 LLM** 的可调用单元 | 连接探查 / 连通门禁 / 事实检查（`pipeline_validator.check_*`）/ 规则检查 / BP 静态准入 / 术语缺口盘点 / 目标列与主键事实 / WSDL 实体分析 / 术语检索 BO（`demo.TerminologyOperation`）/ 类型与 FHIR 模型注册表 |
-| **Workflow** | LLM 参与，但**执行路径由代码预定** | 接口分析（工具采集 + 单轮 LLM 归纳）、数据管道设计 Agent B（决策一次 → 平台代码路径渲染） |
-| **Skill** | 打包的指令/知识，**单步**、无工具循环 | 数据转换生成（A）、知识润色、术语判定（C3 / C3-Dx：单轮判定 + 术语检索 Tool） |
-| **Agent** | **工具 + 多轮自主循环 + 目标** | 转换验证-修复（C1）、管道验证-修复（C2） |
-
-页面同时展示 **Skill 目录**（= AI 决策用的受控清单，`GET /api/agents/skills`）：
-**管道设计 Skill ×6**（`sql2fhir-patient-tx` / `sql2db` / `fhir2db` / `sql2soap` / `fhir2soap` / `fhir2fhir`，
-含适用"源 → 目标"、状态与组件拓扑角色）与 **术语判码 Skill ×2**（`cn2snomed` / `cn2rx`，含源·目标体系与判定 Agent），
-并显示**使用次数**（当前环境实际命中）。口径：平台只按目录**参数化**，选哪个 Skill 仍由 AI 决定。
-
-### 分层模型与 AI 转换
-
-平台将数据转换拆分为三个独立层次，而不是假设“源表 → 目标实体”一一对应：
-
-1. **源资产模型**：描述 FHIR 资源、SQL 表及其字段、类型、主键和关系。
-2. **目标接口模型**：描述数据库表或 SOAP WSDL Operation 的 Request 实体、嵌套字段和约束。
-3. **转换计划**：由 AI 基于两类模型生成，表达多表聚合、拆分消息、JOIN、分组以及字段映射；用户确认后才用于生成管道。
-
-转换计划可通过 `/api/source-assets`、`/api/target-interfaces` 和
-`/api/transformation-plans` 管理，并可通过 `/api/ai/verify` 执行事实验证。
-只有用户在管道监控页面点击“生成 / 重建数据管道”后，系统才会调用 AI 设计
-Production 拓扑并交给 IRIS 编译启动。
-
-- **数据源（FHIR / SQL）**：
-  - FHIR：注册端点后自动分析 CapabilityStatement（Profile / 资源类型 / 操作），发现 FHIR 资源资产。
-  - SQL：JDBC 向导（联通测试 → 选 schema → 选表 → 分析列结构），自动生成轮询 Query，源资产=所选表。
-- **转换目标（DB / SOAP）**：
-  - DB：JDBC 向导（联通测试 → 选 schema → 勾选目标表 → 分析列结构）。
-  - SOAP：WSDL 导入型（读 WSDL 自动生成 BO + 实体分析），数据管道把**转换后的实体**作为请求消息投递；
-    内置示例为**写入型 AddPatient**（扁平三字段），被调系统由 Python mock 承担（`backend/services/mock_soap.py`，
-    收到实体后落库 `PatientEntity` 表并返回回执）。
-- **连接运行契约（Connection Contract）**：添加源/目标时由**连接探查 Agent**
-  （`connection_profiler`）探测并产出归一 `runtime` 契约（connection / capabilities / poll / delivery / health）——
-  FHIR 增量能力、SQL 轮询增量键、SOAP **操作语义判定**（写入型/查询型）、端点可达性。
-  该契约为前端向导、AI 上下文、管道生成、自动验证的**单一参数来源**（详见 `docs/ConnectionContract-设计.md`）。
-- **AI 智能匹配与转换关系**：AI 推荐「资产 → 目标表/实体」匹配与字段级映射（支持 `concat()` 等表达式），用户确认保存。
-- **数据管道（单 Production 可多管道）**：一键生成 IRIS Production 管道，支持异构组合（FHIR→DB / SQL→DB / SQL→SOAP / FHIR→SOAP）
-  以及**单 Production 多套并存**（`POST /api/pipelines/generate` body `pipelines: [组1, 组2]`）：
-  - 转换 BP **一条管道一个实例**（Ens 业务主机身份 = Item 名，类 `demo.TransformProcess` 可复用，
-    如 `TransformProcess__sql2soap`）：本管道源 BS 的 `TargetConfigNames` 指向**自己的** BP，
-    转换参数写在 `^demo.Config("bp", <BP名>)` —— 管道之间**零耦合**，可整条启停（许可随管道释放）；
-    真正跨管道共享的只剩基础设施 `JavaGateway`（JDBC 网关，恒需）
-  - FHIR 增量：`FHIRSyncService`（`_lastUpdated` 游标）→ `FHIRQueue` → `FHIRService`（逐条独立会话）→ 转换 → 投放
-  - SQL 轮询：`EnsLib.SQL.Service.GenericService`（Query/KeyFieldName 增量）→ 行 JSON → 转换 → 投放
-- **数据管道 = 受管理的持久实体**：每次生成登记一条管道实体（源数据源 + 目标接口 + 设计 Skill），
-  重复生成**只更新不新增**（记录生成次数）；组件按 Ens `Category` = 管道类别落地，
-  Pipelines 页「数据管道」卡片可**整条启用/停用/删除/同步**，并能看到许可占用（业务主机数 + 后端连接 ≤ 许可单元，
-  超容量显式报错而不是把后端打挂）；被新生成取代的管道标记为**已取代（superseded）**，只允许删除后重新生成。
-- **自动测试-修复闭环**：generate 前置**连通性检查**（用运行时契约）→ C1 转换验证 → C2 管道验证
-  （拓扑/编译/启动/消息）；运行期错误由 C2 在配置上限内进行 LLM 决策、受限修复与复验，
-  无法安全修复则明确失败，不静默回退规则拓扑。多管道走同一链路。
-- **动态选项**：前端页面（资产/目标/可查看数据表）的选项**由演示过程登记的内容动态生成**（API 驱动，非写死）。
-- **管道监控**：实时消息流转日志（Ens.MessageHeader 真实消息历史）、目标表落库结果（动态可选表）。
-
-
-## 技术架构
-
-| 组件 | 技术栈 |
-| ---- | ------ |
-| 数据库 / 集成引擎 | InterSystems IRIS for Health（社区版，`containers.intersystems.com/intersystems/irishealth-community:2026.1`） |
-| FHIR 数据源 | IRIS 自带 FHIR Server（核心 R4 `hl7.fhir.r4.core@4.0.1`，FHIRSERVER namespace） |
-| 后端 API | Flask + IRIS Native SDK（`intersystems-irispython`）+ OpenAI SDK |
-| 前端 | Vue 3 + Element Plus + Vite + nginx |
-| AI | OpenAI 兼容接口（`base_url` / `api_key` / `model` 可配） |
-| 编排部署 | Docker Compose（**5 个服务**：`iris` / `backend` / `frontend` / `iris-terminology` / `embedding`；**默认启动 4 个** —— 跳过 `embedding`，详见「演示环境初始化」） |
-
-**IRIS 多角色（单实例）**：
-- **FHIRSERVER namespace**：FHIR Server（实例自带）——**演示默认的 FHIR 目标仓库**（转换结果落这里），
-  端点 `http://localhost:52773/csp/healthshare/fhirserver/fhir/r4/`
-- **DEMOFHIR namespace（第二个 FHIR 存储库）**：与 FHIRSERVER 同构的**独立** FHIR 仓库（主库 `DEMOFHIR` +
-  数据仓库库 `DEMOFHIRX0001R/V`），端点 `http://localhost:52773/csp/healthshare/demofhir/fhir/r4/`；
-  与 FHIRSERVER **数据完全隔离**（同一资源 id 互不可见）——**演示默认的 FHIR 源仓库**（UI 数据源表单、
-  `FHIRConfig.BASE_URL`、模拟数据脚本都默认指向它）。
-  创建：`iris/setup.sh` 步骤 2b（容器启动即幂等创建）；运行中的实例可重复执行 `python3 tools/create_fhir_repo.py`（带 15 项自检）
-- **USER namespace**：转换平台——目标表（模拟远端库/落库）、互操作性 Production、Mapping 与运行契约配置
-
-**演示数据表（SQLUser schema，结构与语义）**：
-| 表 | 语义 | 数据来源 |
-| ---- | ---- | ---- |
-| `Patient` / `Observation` | FHIR→DB 目标落库（FHIR 资源转换写入） | FHIR 管道 / 亦可用于 SQL 源（向导自行选择即可） |
-| `PatientSource` | SQL 源演示表（与 Patient 同结构，模拟“第三方业务库”） | 手工/脚本插入，供 SQL→SOAP 管道轮询 |
-| `PatientEntity` | SOAP 投递结果（Python mock 收到 AddPatient 实体后落库） | mock 写入 |
-| `FHIRQueue` | FHIR 增量抓取队列表（FHIRSyncService 入队，FHIRService 消费） | FHIRSyncService |
-
-> **命名空间默认口径（2026-09-16）**：演示默认 **SQL 源 = `USER` 命名空间**（`SQLUser.Patient` / `PatientSource`）、
-> **SQL 目标 = `CLINIC` 命名空间**（跨库写入演示）；两边 DSN 都由登记 jdbc_url 的命名空间推导
-> （`jdbc:IRIS://iris:1972/CLINIC` → DSN `CLINIC`）。要写平台内置目标表（`Patient`/`Observation`，在 `USER`）
-> 就把 DB 目标的 URL 改回 `jdbc:IRIS://iris:1972/USER`。
-
-**数据管道（Production）**：转换 BP 类 `demo.TransformProcess`（Embedded Python 字段映射转换，支持 `concat()` 表达式与 `表.列` 前缀）——
-**每条数据管道各建一个 BP 实例**（Ens 业务主机身份 = Item 名，如 `TransformProcess__sql2soap`；类可复用，管道互不干扰）：
-- FHIR 源：`FHIRSyncService`（`_lastUpdated` 增量游标）→ `FHIRQueue` → `FHIRService`（逐条独立会话）→ 本管道的转换 BP
-- SQL 源：`EnsLib.SQL.Service.GenericService`（JDBC 轮询，Query + KeyFieldName）→ 行 JSON → 本管道的转换 BP
-- 目标：`SQLOp_<表>`（JDBC UPSERT；**DSN 按目标登记 jdbc_url 的命名空间推导** —— 演示默认 SQL 目标 = `CLINIC` 命名空间 → DSN `CLINIC`，无 jdbc_url 才回落 `localTarget`）；`SOAPOp_<服务>`（WSDL 导入 BO + Adapter WebServiceURL 指向远端/mock）
-- 目标：**FHIR 仓库** `HTTPOperation`（`EnsLib.HTTP.GenericOperation`，通用 REST + **schema 驱动组装**：按 `^demo.Config("fhir","schema",<type>)` 的列元数据组装 `Patient / Encounter / Condition / MedicationRequest / …`，PUT + Basic Auth 写目标仓库）
-- 参数与路由：BP 读**自己的**配置 `^demo.Config("bp", <BP名>)`（mapping / target_type / service|table），
-  源 BS 经 `TargetConfigNames`（或 `^demo.Config("bp_target", 源BS名)`）投递给本管道的 BP，
-  再由 BP 按 target_type 分发到 `SQLOp_*` / `SOAPOp_*`；旧路由表 `^demo.Config("pipe", 源BS名)` 仅作历史兼容兜底
-
-
-## 快速启动
-
-前置条件：已安装 Docker 与 Docker Compose（Windows 建议 WSL2 + Docker Desktop；仓库统一 **LF** —— 见下方前置 7）。
-
-> **新环境前置（克隆到其它机器时必看）**
->
-> 0. **IRIS 镜像来自 InterSystems 容器仓库（需免费账号）**：`irishealth-community` 不托管在 Docker Hub，
->    需先在 <https://containers.intersystems.com> 注册（免费）并登录：
->    ```bash
->    docker login containers.intersystems.com   # 用户名/密码 = 注册邮箱/密码
->    ```
->    未登录时 `docker compose up` 拉镜像会失败（镜像分发受 InterSystems 许可约束，本仓库不转存）。
->    另请预留 **≈ 20 GB 磁盘**与耐心：**首次**构建/初始化约 **20–40 分钟**（含 embedding 首次下载安装 torch
->    与本地向量模型；后续构建走缓存会快很多）。
-> 1. **子模块依赖：术语服务器是独立项目**。`termsrv` 以 **git submodule** 引入
->    （[`zlnick/iris-terminology-server`](https://github.com/zlnick/iris-terminology-server)，分支 `demo-community`），
->    `iris-terminology` 容器**就是由它构建**的：
->    - 克隆时带上子模块：`git clone --recurse-submodules https://github.com/zlnick/DataPipelineDemo.git`
->    - 已克隆但忘了：`git submodule update --init --recursive`
->      ⚠ 若报 Unable to find current revision in submodule path termsrv，说明子模块仓库
->      （zlnick/iris-terminology-server，分支 demo-community）要么尚未公开、要么该分支还没收到父仓库记录的提交。
->      可自查：git ls-remote <子模块地址> refs/heads/demo-community
->      （缺子模块时 `iris-terminology` **构建失败**；平台主体仍能跑，但术语能力降级为
->      "保留源编码 + `meta.tag=urn:cn-nhsa:term-map|unmapped`"，`term_map_build.py` 等工具不可用）
->    - **构建方式**：compose 里该服务为 `build: context: ./termsrv`（`termsrv/iris/Dockerfile`）→
->      `docker compose up -d` 会**自动构建**；也可单独构建/重建：
->      `docker compose build iris-terminology && docker compose up -d iris-terminology`
->    - **术语服务器的数据目录是 `./data/iris-terminology`，但映射（`/mapping/*`）实际存在容器内部 DB**：
->      **容器一旦重建，映射即丢失**（重跑 `bash tools/term_map_import.sh`，等价 `python3 tools/term_map_sync.py import`；
->      `setup.sh` 已含此步且幂等）。`tools/term_map_seed.py` 是 seed **生成器**，不是导入器。
->      不重建、只想更新平台扩展类时，用 `bash tools/termsrv_load.sh` **热加载**（不丢数据）；
->      术语素材（`data/terms-inbox/`：国标 ICD-10 约 2 万条 + NRDL/CBIH 中文药品目录）**随仓库分发**，
->      由 `tools/setup.sh` 调用 `bash tools/term_data_load.sh` **幂等灌入**术语服务器概念表
->      （`Terminology_Icd10.Concept` / `Terminology_Drug.Code`）——**CLINIC「生成演示数据」依赖它**
->      （诊断/药品的中文名取自术语库），容器重建后重跑即可恢复；来源与条款见 `NOTICE`。
->      CLINIC 演示源库（SQL 源）四表 Patient/Encounter/Diagnosis/MedicationOrder 由
->      `bash tools/clinic_init.sh` **幂等建表**（缺表才建、不动已有数据；`setup.sh` 已含此步，
->      backend 启动时也会兜底检查）——缺表时 CLINIC 四表的 SQL 源 BS 会报错、「生成演示数据」也会失败。
->      另：成品**映射种子**（`data/seeds/term_map_seed.json`，81 条）由 `tools/setup.sh` 自动导入（`tools/term_map_sync.py import`）；
->      术语服务器的平台扩展（`/mapping/*` 路由 + `CodeMap` 表）由 `termsrv-patches/` 覆盖进子模块（`tools/termsrv_apply_patches.sh`，幂等）——
->      因此 clone 后术语转换即可用，不依赖子模块远端是否已含这两个文件。
-
-> 2. **JDBC 驱动 jar：一条命令搞定，无需去官网下载**。backend 的"数据源连通测试 / 选 schema·表 / 分析列 /
->    DB 元数据发现"走 **JayDeBeApi + JPype**，需要 `intersystems-jdbc-*.jar`（InterSystems 专有件，**不入版本库**）；
->    但 **IRIS 官方镜像自带该驱动**，故提供一键提取脚本：
->    ```bash
->    docker compose up -d iris        # 先起 IRIS（驱动就在镜像里）
->    bash tools/fetch_jdbc_jar.sh     # 提取到 ./jdbc/（免下载、版本与 IRIS 一致）
->    docker compose up -d             # 再起其余服务
->    ```
->    （服务已全起来也可：提取后 `docker compose restart backend`；⚠ 该重启会重跑 `init_data.py` 重建目标表，
->    **与环境已有演示数据时请勿随意执行**。需要**自定义驱动**时，把 jar 直接放进 `./jdbc/` 即可。）
-> 3. **`.env`**：`cp .env.example .env` 并填 `LLM_BASE_URL / LLM_API_KEY / LLM_MODEL`
->    （不填则 AI 功能**显式报错**、不静默降级；平台仍可启动）。
-> 4. `data/embedding-model`（本地向量模型）**无需手工准备**：embedding 容器首次启动会
->    **自动从 ModelScope 下载**（`Qwen/Qwen3-Embedding-0.6B`，需网络）。
-> 5. **网络不稳可直接重跑** `bash tools/setup.sh`（**幂等**：子模块 / `.env` / data 目录 / 构建 / 种子
->    都会跳过已完成项）；子模块因网络中断拉取失败时，重跑即可恢复。
-> 6. **术语向量化（可选，默认不做）**：`setup.sh` **不需要向量**（术语转换只用成品映射；默认**跳过 `embedding` 容器**，
->    省首次 ~1.1 GB 模型下载与构建时间）。想试验"向量化 / 语义检索 / AI 补录映射"的读者 →
->    见独立章节 **[术语向量化（可选，独立测试）](#术语向量化可选独立测试)**。
-> 7. **跨平台换行符（统一 LF）**：仓库根有 `.gitattributes`（`* text=auto eol=lf`；
->    `*.sh/*.bash/*.cls/Dockerfile` 与 `*.csv/*.tsv` 显式 `eol=lf`；`*.jar/*.zip/图片/字体/xlsx/pdf` 按二进制），
->    **所有文件都以 LF 存储并检出**。Windows（Git for Windows 默认 `core.autocrlf=true`）若检出成 CRLF，会出现：
->    - 容器内脚本找不到：`sh: 1: /shared/setup.sh: not found`（IRIS）、`exec /app/entrypoint.sh: no such file or directory`（embedding）
->    - 宿主 bash 立即失败：`set: pipefail: invalid option name`
->    处理：`git config --global core.autocrlf false` 后**重新 clone**（或 `git checkout -- .` 让 `.gitattributes` 生效）。
-
-### ⚡ 一条命令复刻完整演示（推荐先跑这个）
-
-```bash
-bash tools/setup.sh && python3 tools/e2e_ui_flow.py
+```sh
+python3 contest/prepare.py
+docker compose --profile mock up -d --wait
+python3 contest/test.py --restart
 ```
 
-它会依次完成：**登记 CLINIC SQL 源 → 连通测试 → 选表 → 生成演示数据 → 登记 FHIR 目标 → AI 智能匹配 → 保存映射 → 生成数据管道**，并打印结果。
-实测：`result: OK`、`validation ok: True`、FHIR 目标落地 **Patient 3 / Encounter 4 / Condition 7 / MedicationRequest 7**。
+The mock provider is local, while BP, AI Hub SDK, tools, BO, persistence and
+auditing are real. Open <http://127.0.0.1:52777/csp/sys/UtilHome.csp> and select
+the dedicated **TRIAGE** namespace after signing in.
+See the [installation and workflow guide](./contest/README.md) for real-provider
+configuration, license/image requirements, test evidence and limitations.
 
-> ⚠ 需先填好 `.env` 的 `LLM_*`（AI 匹配与生成必需）；映射由 AI 判定、造数含随机 ⇒ **链路与结构可复刻，具体字段/编码/数量会不同**。
+## HIPAA demonstration knowledge
 
-```bash
-# 1. 配置 LLM（AI 推荐功能；不配则 AI 接口返回明确提示）
-bash tools/setup.sh        # 一条命令：子模块 + .env + data 目录 + 构建启动 + JDBC 提取 + CLINIC 源库建表 + 术语概念导入 + 映射种子导入 + 健康检查
-# 编辑 .env：填写 LLM_BASE_URL / LLM_API_KEY / LLM_MODEL（任意 OpenAI 兼容服务）
+The [release knowledge package](./hipaa-demo-knowledge/README.md) contains
+**approximately 23 MB of UTF-8 knowledge text**: prepared official evidence, five LLM-authored
+briefs and one synthetic organization policy, with source/version citations.
+It was organized with LLM-assisted briefs and deterministic extraction and
+deduplication for reproducible contest verification. Original binary sources
+are not needed to validate the published text.
 
-# 2. 一键启动全部服务（首次会自动构建镜像、初始化 FHIR Server 与目标表）
-docker compose up -d
+**Not every source was LLM-rewritten.** The official evidence remains available
+as extracted text; the briefs are explicitly non-authoritative summaries.
+The complete prepared text is now published instead of a size-limited subset.
+Historical explanations and unreviewed cases/proposals are retained in separate
+scopes and excluded from default exports. Two NIST guides supplement the HHS
+evidence. There is no 5–10 MB requirement.
+The package is not legal advice or a complete HIPAA compliance assessment.
 
-# 3. 访问前端
-http://localhost
-```
+Two explicit input profiles separate development from release:
 
-停止服务：
-
-```bash
-docker compose down
-# 清空数据（FHIR 数据 / 目标表 / 数据源·映射·管道登记）—— 按平台的正确姿势：
-#   · Windows / Docker Desktop（/dur = 命名卷 dataflow-iris-dur）：
-#     该卷由覆盖文件声明，**带上覆盖文件**时 `down -v` 就能一并删（不带则 -v 不会删它）：
-docker compose -f docker-compose.yml -f docker-compose.windows.yml down -v
-#     等价写法（只想删数据、容器已停）：
-docker volume rm dataflow-iris-dur
-#     之后：bash tools/setup.sh（首次启动自动重建实例数据）
-#   · macOS / Linux（/dur = 绑定挂载 ./data/iris）：`-v` 对绑定挂载**无效**，要删/改名目录：
-mv data/iris data/iris.bak-$(date +%Y%m%d)   # 之后 docker compose up -d
-```
-
-## 演示环境初始化（`bash tools/setup.sh` 做了什么）
-
-> 目标：**一条命令**把「从零 clone」变成「可演示」。默认**不做**任何向量化（演示不需要，初始化更快）。
-
-| 步骤 | 动作 | 结果 / 说明 |
+| Profile | Purpose | Git distribution |
 |---|---|---|
-| 1 | 拉 `termsrv` 子模块 + 应用 `termsrv-patches/` overlay | 术语服务器构建源就位；overlay 幂等（`applied=0` = 已是新版） |
-| 2 | 准备 `.env`（缺则从 `.env.example` 复制） | **AI 功能需填 `LLM_*`**；不填则 AI 接口显式报错，平台仍可启动。`C2_MAX_ATTEMPTS` 配置生成后管道修复决策预算（1–10，默认 3）；每轮至多一个单轮工具，不改凭据/连接/查询或平台父类源码，不代表整次生成请求最多调用 LLM 三次 |
-| 3 | 建 `data/` 子目录 | `data/iris`、`data/iris-terminology`、`data/terms-inbox`、`data/embedding-model` |
-| 4 | 构建并启动容器 | 默认 **4 个**：`iris`、`backend`、`frontend`、`iris-terminology`（加 `--with-embedding` 才含 embedding） |
-| 4b | **Windows：IRIS 数据目录改用命名卷**（`docker-compose.windows.yml`，`setup.sh` 自动启用） | Windows/WSL 下把 `/dur` 从 `./data/iris` 绑定挂载换成命名卷 `dataflow-iris-dur`（建卷 + 卷根属主改 irisowner）。理由：绑定挂载经 Docker Desktop 文件共享层时 `chown`/`rename` 不可靠，会让 IRIS 首次「搬迁数据目录」`EPERM` → 容器 Exited(1)；命名卷是 VM 内真实 ext4，从根上消除该类问题 |
-| 4c | **等待核心服务就绪**（有界） | 先等 IRIS/backend 就绪（`--wait 300/180`）**再做**后续建表 / 灌库 —— 全新实例首次 FHIR 初始化常 >180s，先等可避免 `clinic_init` / `term_data_load` 误报 `Access Denied` |
-| 5 | 提取 JDBC 驱动 | 从 IRIS 镜像一条命令取 `intersystems-jdbc-*.jar` → `./jdbc/`（无需官网下载） |
-| 6 | **CLINIC 源库建表** | `Patient/Encounter/Diagnosis/MedicationOrder`——**幂等**（缺表才建、不动数据；其前的 4c 已等 IRIS 就绪） |
-| 7 | **术语概念灌库** | ICD-10 **20,484** 条 + 药品 NRDL **3,919** / CBIH **19** 条 → `Terminology_Icd10.Concept` / `Terminology_Drug.Code` |
-| 8 | **术语映射种子** | `data/seeds/term_map_seed.json` **81 条** → 术语服务器映射表（术语转换的事实源） |
-| 9 | 健康检查 | 打印 `backend / frontend / terminology` 三项（尽力探测，不强制失败） |
-| 10 | **私有 Web 服务器自愈**（`iris/setup.sh` 第 7 步） | 把 httpd 的 `PidFile` 指到容器内 `/tmp/httpd.pid`（绕开 Windows 绑定挂载上 `rename` 被拒的坑），必要时拉起 httpd 并核验门户 **52773** |
+| `demo` | Published complete prepared text, with scope-controlled exports | Included |
+| `full` | Locally rebuilt copy for development comparison | Excluded |
 
-**初始化后的状态（全新环境）**：4 个容器 Up；`http://localhost` 是**空白演示态**（无数据源/目标/映射/管道）；
-术语服务器已有**概念 + 映射**（供术语转换与造数用）；`/api/pipelines/status` 为 `running:false`（尚未生成管道）。
+```sh
+# Verify release inputs without downloading the full archive.
+python3 contest/knowledge.py verify --profile demo
+python3 contest/knowledge.py select --profile demo
+python3 contest/knowledge.py release-check
+python3 contest/knowledge.py export --output contest/data/knowledge/default.jsonl
 
-**常用参数**
-
-| 命令 | 作用 |
-|---|---|
-| `bash tools/setup.sh` | 全流程（**默认跳过 embedding**） |
-| `bash tools/setup.sh --with-embedding` | 一并构建/启动 embedding（做术语向量化试验时才需要） |
-| `bash tools/setup.sh --check` | **只读体检**：子模块 / `.env` / JDBC / docker |
-| `bash tools/setup.sh --help` | 用法 |
-
-**⚠ 容器重建后需要重灌**：术语**概念**与**映射**都存在于 `iris-terminology` **容器内部 DB**，容器重建即丢 →
-重跑 `bash tools/term_data_load.sh`（概念）+ `bash tools/term_map_import.sh`（映射），或直接重跑 `bash tools/setup.sh`（幂等，两步都含）。
-CLINIC 四表由 backend 启动时**自动兜底检查**（缺表补建，不删数据）。
-
-
-
-## 术语服务器（`iris-terminology`）——它做什么、平台怎么用它
-
-**定位**：独立容器（**fork 自开源项目 [`intersystems-ib/iris-terminology-server`](https://github.com/intersystems-ib/iris-terminology-server)——MIT 许可、作者 [Luis Angel Pérez Ramos](https://openexchange.intersystems.com/package/iris-terminology-server) 的裁剪版**
-——本仓库使用的 fork 为 [`zlnick/iris-terminology-server`](https://github.com/zlnick/iris-terminology-server)；
-**服务器本身的核心能力（多术语导入 / 发布管理、持久化存储 + SQL / iFind 检索、原生与 FHIR R4 术语接口、生产化处理）是上游作者的工作，功劳全归他，谨此致谢**；
-宿主端口 **52774**→52773、**51774**→1972，凭据 `superuser / SYS`），做两件事：
-① **术语存储 + 检索/校验**（CodeSystem / ValueSet）；② **术语转换映射的事实源**（`/mapping/*`）。
-**转换/映射的判定**由平台 AI Skill（C3 药品 / C3-Dx 诊断）负责，不在术语服务器做。
-
-**网页入口**：`http://localhost:52774/terminology/` →「术语服务器 · 术语集」清单页（概念数 / 向量数 / 端点）；
-管理门户：`http://localhost:52774/csp/sys/UtilHome.csp`。
-
-**内置术语集**（`GET /terminology/systems`）
-
-| id | 内容 | 平台用途 |
-|---|---|---|
-| `chinese-icd10` | 国标 ICD-10（GB/T 14396-2016，中文） | CLINIC 造数取**中文诊断名** |
-| `chinese-drugs` | 中文药品目录（医保 NRDL + 商保 CBIH） | CLINIC 造数取**中文药品名** |
-| `rxnorm` | RxNorm（IN/SCD/BN） | 术语转换的**目标体系**（药品） |
-| `snomed-uscore` | SNOMED CT（US Core Condition 样本） | 术语转换的**目标体系**（诊断） |
-
-**REST 能力（节选）**
-
-| 类别 | 端点 |
-|---|---|
-| 术语检索 / 校验 | `/terminology/icd10/{search,lookup,validate-code}`、`/terminology/icd/{…}`、`/terminology/drug/{search,lookup,validate-code,codesystems}`、`/terminology/rxnorm/{search,lookup,validate-code,chinese-map}`、`/terminology/snomed/*`、`/terminology/loinc/*`、`/terminology/uscore-condition/*` |
-| **转换映射**（平台运行期使用） | `GET /terminology/mapping/lookup?sourceSystem=&targetSystem=&sourceCode=`、`GET /terminology/mapping/systems`（按体系对统计）、`POST /terminology/mapping/entries`（批量幂等 upsert） |
-| 向量 | `GET /terminology/vector/search?q=&systemUri=&limit=`、`/terminology/vector/crosswalk`（见下一章） |
-| FHIR 术语面 | `/terminology/fhir/r4`（`CodeSystem/$lookup`、`$validate-code`、`$subsumes`、`ValueSet/$expand`） |
-
-**平台在哪些环节用它**
-
-1. **运行期术语转换**：共享 BO `demo.TerminologyOperation` **实时**查 `/mapping/lookup` —— **没有本地缓存要预热**；
-   服务器缺该映射时**默认降级**（保留源编码 + `meta.tag=…|unmapped`，不静默、不阻断）；补录见下。
-   （该 BO 及其消息类 `TermLookupRequest`/`TermLookupResponse` 已在 `iris/setup.sh` 的编译清单中
-   ⇒ **全新实例可直接生成管道**，不会出现 `<CLASS DOES NOT EXIST> … demo.TerminologyOperation`。）
-2. **CLINIC 造数**（界面「生成演示数据」）：读**概念表**取中文诊断/药品名。
-3. **AI 判码（C3 / C3-Dx）**：生成期或补录时经**向量召回 Top-K** → LLM 判定 → 写回映射（见下一章）。
-
-**数据面（哪些自动、哪些要自己做）**
-
-| 表 | 内容 | 由谁灌入 |
-|---|---|---|
-| `Terminology_Icd10.Concept` / `Terminology_Drug.Code` | 术语概念 | **`setup.sh` 自动**（`tools/term_data_load.sh`） |
-| `Terminology_Mapping.CodeMap` | 转换映射（事实源） | **`setup.sh` 自动**（`tools/term_map_import.sh`，81 条种子） |
-| `Terminology_Vector.TermEmbedding` | 术语向量 | **需自行生成**（见下一章；演示不需要） |
-
-**常用运维命令**
-
-| 命令 | 作用 |
-|---|---|
-| `bash tools/term_data_load.sh` | 幂等灌术语概念（素材随仓库分发） |
-| `bash tools/term_map_import.sh` | 幂等灌映射种子（81 条） |
-| `bash tools/termsrv_vector_init.sh [--check]` | 查看**向量能力**状态（缺表自动补建）+ 打印向量化步骤 |
-| `bash tools/termsrv_apply_patches.sh` | 把平台扩展（`/mapping/*` + `CodeMap`）覆盖进子模块（幂等） |
-| `bash tools/termsrv_load.sh` | 不重建容器，热加载平台扩展类进运行中的容器 |
-| `python3 tools/term_map_build.py [--dry] [--limit N]` | AI 补录缺失映射（向量召回 → LLM 判码 → 写回服务器） |
-
-## 术语向量化（可选，**独立测试**；演示不需要）
-
-**它是干什么用的**：向量化服务于**术语映射的生产**，不是演示运行期。
-中文诊断/药品名与英文 SNOMED/RxNorm **没有直接码表**，AI 判码（C3 / C3-Dx）必须先用**语义相似**召回 Top-5~6 候选，
-再交 LLM 判定 → 写回术语服务器。本仓库已把**成品映射（81 条）**随仓库分发，因此**演示开箱即用，无需跑向量化**。
-
-**前置条件（三项已就绪）**
-
-| 条件 | 说明 |
-|---|---|
-| 术语服务器**向量表** | `Terminology_Vector.TermEmbedding` —— **开箱存在**（列 `ID/Code/Embedding/Lang/Model/ReleaseId/SystemUri/Text`），默认 **0 行**；若缺表，`termsrv_vector_init.sh` 会编译类自动补建 |
-| 本地 **embedding 服务** | `docker compose up -d embedding`（Qwen3-Embedding-0.6B，首次自动下载 ~1.1 GB）；术语服务器经 `^Config("Vector","EmbeddingHost")`（默认 `embedding:8000`）访问它 |
-| **概念数据**（向量的输入） | 中文 ICD-10 / 药品概念由 `setup.sh` 自动灌入 ✓ |
-
-**独立测试步骤（本项目实测通过）**
-
-```bash
-# ① 起本地向量服务（首次下载模型，需几分钟；可 `docker logs -f dataflow-embedding` 观察）
-docker compose up -d embedding
-
-# ② 检查向量能力：表存在性 / 行数 / 按体系分组（缺表会自动编译类补建）
-bash tools/termsrv_vector_init.sh
-
-# ③ 生成向量（任选其一）
-python3 tools/dx_vectorize.py --zh                  # 中文 ICD-10 全量（~2 万条；约 10~20 条/秒）
-python3 tools/term_embed.py --system <uri> --tsv <file.tsv>   # 任意术语集（TSV）
-bash run_rxnorm_vec.sh                              # RxNorm 全量（2.6 万条；**需自备 RxNorm 原始数据**，含 OOM/过热自愈 + 断点续传）
-
-# ④ 语义检索验证（应返回带 score 的候选）
-curl -u superuser:SYS 'http://localhost:52774/terminology/vector/search?q=阿司匹林&limit=3'
-
-# ⑤ 完整链路：向量召回 → LLM 判码 → 写回映射（需配好 .env 的 LLM key）
-python3 tools/term_map_build.py --dry        # 先看缺哪些映射（不调 LLM、不写入）
-python3 tools/term_map_build.py --limit 5    # 补录 5 条
+# Development only, after preparing the local full corpus:
+python3 contest/knowledge.py select --profile full
 ```
 
-**实测参考（2026-09-27）**：embedding 维度 **1024**；写入 2 条后
-`vector/search?q=阿司匹林` → 命中 `阿司匹林 score 1.0024`、`复方硼砂 score 0.5708` ✓
+Selection pins a corpus digest and a separate profile-specific index key.
+These commands **prepare and select inputs only**: AI Hub knowledge ingestion
+and use by a security-review Agent are not implemented yet. The existing triage
+Agent does not automatically use either corpus.
 
-**注意事项**
+For real use, users may choose a fuller approved knowledge base after checking
+source currency, applicability, data flows and retrieval quality. The full
+local archive must not be committed, silently uploaded, or indexed by default.
+No patient messages belong in the normative knowledge corpus.
 
-- **数据量级**：ICD-10 全量 ≈ **1.9 万向量**、RxNorm SCD/SBD/IN ≈ **3 万向量**（合计 **200 MB+**）⇒ **不宜入库**，请按需自行生成。
-- **资源**：embedding 与 IRIS 同跑可能 OOM / 宿主过热 → 建议限核（~8 核）并分批（`run_rxnorm_vec.sh` 已内置续传与自愈）。
-- **不想要时可随时停**：`docker compose stop embedding` —— 平台与演示**完全不受影响**（没有任何服务依赖它）。
-- 演示只读**成品映射**：`data/seeds/term_map_seed.json`（`setup.sh` 自动导入）。
+## Repository layout
 
-## 默认访问地址
+- [contest/](./contest/): application source, deployment, tests and knowledge CLI.
+- [hipaa-demo-knowledge/](./hipaa-demo-knowledge/): complete prepared text corpus.
+- `hipaa-documents/`: ignored full source archive and prepared local full corpus;
+  not required to validate the release package.
+- [contest-knowledge/](./contest-knowledge/): project development notes/evidence.
+- [IRIS development tools](./contest/dev/README.md): Agentic Dev MCP and Copilot
+  Interop Skills, distinct from the runtime AI Hub Agent.
 
-| 服务 | 地址 | 说明 |
-| ---- | ---- | ---- |
-| 前端应用 | http://localhost ｜ http://localhost/en | Vue 3 + Element Plus，**中英双语**（`/` 中文默认、`/en` 英文），顶部栏可切换 |
-| 后端 API | http://localhost:5001 | REST API（nginx 代理 http://localhost/api/*） |
-| IRIS 管理门户 | http://localhost:52773/csp/sys/UtilHome.csp | 账号 `superuser`，密码 `SYS` |
-| FHIR endpoint（实例自带 = 默认**目标**仓库） | http://localhost:52773/csp/healthshare/fhirserver/fhir/r4/ | `/metadata` 匿名；资源读写需 Basic Auth；转换结果默认落这里 |
-| FHIR endpoint（第二个仓库 = 默认**源**仓库） | http://localhost:52773/csp/healthshare/demofhir/fhir/r4/ | 独立命名空间 `DEMOFHIR`；数据源表单/`FHIRConfig.BASE_URL` 默认指向它；与上一行数据**互不可见**；自检 `python3 tools/create_fhir_repo.py --check` |
-| IRIS 超级服务器 | localhost:1972 | Native SDK / DB-API 连接端口 |
-| **术语服务器：术语集清单页（内置网页）** | http://localhost:52774/terminology/ | 标题「术语服务器 · 术语集」；列出 4 个术语集（中文药品 / RxNorm / 国标 ICD-10 / SNOMED US Core 样本）与各自检索端点；JSON 版 `http://localhost:52774/terminology/systems`；账号 `superuser` / 密码 `SYS` |
-| 术语服务器：原生 REST（浏览器可直接看） | http://localhost:52774/terminology/… | 例 `/terminology/icd10/search?q=糖尿病`、`/terminology/drug/search?q=阿司匹林`、`/terminology/uscore-condition/zh-map?q=糖尿病`、`/terminology/vector/search?q=diabetes`；全量路由见 `termsrv/iris/src/Terminology/Production/API.cls` |
-| 术语服务器：管理门户 / Production 配置 | http://localhost:52774/csp/sys/UtilHome.csp ｜ http://localhost:52774/csp/user/EnsPortal.ProductionConfig.zen?$NAMESPACE=TERMINOLOGY | 生产 = `Terminology.Production`；⚠ Ensemble 门户挂在 `/csp/user/`（`/csp/sys/` 版 404） |
-| 术语服务器：上游 React 演示 UI（Terminology Explorer） | http://localhost:5173（**本环境未部署**） | 需宿主装 Node 后 `cd termsrv/ui && npm install && VITE_API_BASE_URL=http://localhost:52774 npm run dev`；上游另需 `webgateway` 容器（8080） |
+## Provenance and limitations
 
-> **前端与管理门户的分工**：Demo 前端负责**业务配置**（数据源/资产/AI 映射/生成管道）与**业务监控**（消息日志、目标表落库）；
-> 生成的 Production 是标准 `Ens.Production`，其**技术管理**（组件配置、启停、消息详情、错误排查）请登录
-> [IRIS 管理门户](http://localhost:52773/csp/sys/UtilHome.csp) → 互操作性 → 配置 Production（账号 `superuser` / 密码 `SYS`）。
+Forked from [zlnick/DataPipelineDemo](https://github.com/zlnick/DataPipelineDemo).
+This fork adds runtime AI Hub triage, a dedicated Interoperability namespace,
+policy enforcement, persistent destinations, auditing and mock/real-provider
+verification. The inherited pipeline-generation stack was removed; its history
+and attribution remain. No upstream repository is modified.
 
-## API 列表
+The current destination is local storage, human review is a queue rather than
+a resolution UI, and whole-loop billing/external delivery are not implemented.
+Contest eligibility and acceptance of the EAP build remain the organizer's
+decision.
 
-统一响应格式：`{"code": 0, "data": ..., "message": "success"}`（`code != 0` 表示出错）。
+## License
 
-| 方法 | 路径 | 说明 |
-| ---- | ---- | ---- |
-| GET | `/api/health` | 健康检查（IRIS 连通性） |
-| POST | `/api/datasources` | 注册数据源（名称/类型/端点/认证） |
-| GET | `/api/datasources` | 数据源列表 |
-| POST | `/api/datasources/<id>/analyze` | 自动分析 Profile（CapabilityStatement → 资源类型/资产） |
-| GET | `/api/datasources/<id>/assets` | 指定数据源的资产列表 |
-| GET | `/api/targets` | 目标表列表（表结构/行数） |
-| GET | `/api/targets/<table>/data` | 目标表数据 |
-| POST | `/api/ai/recommend` | AI 推荐（资产→目标表 + 字段映射） |
-| POST | `/api/mappings` | 保存转换关系 |
-| GET | `/api/mappings` | 转换关系列表 |
-| POST | `/api/pipelines/generate` | 生成并启动数据管道（动态生成 Production）；**许可调度**：超许可上限的分组照旧生成但初始停用（响应 `license_budget.scheduled/suspended`） |
-| POST | `/api/pipelines/run` | 触发一次转换 |
-| GET | `/api/pipelines/status` | 管道运行状态 |
-| GET | `/api/pipelines/items` | Production 组件清单（含类别分组、许可单元占用） |
-| POST | `/api/pipelines/items/toggle` | 在线启停单个组件（切换管道占用许可） |
-| GET | `/api/pipelines/instances` | **数据管道实体列表**（状态 active/suspended/superseded、生成次数、按类别分组、许可占用） |
-| POST | `/api/pipelines/instances/<id>/enable` \| `/disable` | 整条管道启用/停用；**一键切换**：许可不足时自动停用其它活动管道腾单元（`disabled_others`），腾不出来才显式失败 |
-| DELETE | `/api/pipelines/instances/<id>` | 删除管道实体（并让其组件让路） |
-| POST | `/api/pipelines/instances/sync` | 按 Production 事实同步/校正管道实体状态 |
-| GET | `/api/pipelines/logs` | 消息流转日志（Ens.MessageHeader） |
-| GET | `/api/pipelines/mappings` | Production 正在执行的转换关系 |
-| GET | `/api/pipelines/target-data` | 目标表落库结果 |
-| GET | `/api/agents` | 已封装 AI 能力（Skills / Agents） |
-| GET | `/api/agents/skills` | **Skill 目录**（管道设计 Skill + 术语判码 Skill，含适用源→目标 / 状态 / 使用次数） |
-
-## LLM（AI 推荐）配置
-
-AI 推荐调用 **OpenAI 兼容接口**，可填写任意兼容服务：
-
-```ini
-# .env
-LLM_BASE_URL=https://api.deepseek.com/v1     # 例如 DeepSeek；默认 https://api.openai.com/v1
-LLM_API_KEY=sk-xxxxxxxx                        # 服务商密钥（必填）
-LLM_MODEL=deepseek-chat                        # 模型名
-```
-
-> 未配置 `LLM_API_KEY` 时，AI 推荐接口返回明确错误提示，其余功能（数据源分析 / 管道生成 / 监控）不受影响。
-
-## 目录结构
-
-```
-.
-├── docker-compose.yml        # 一键编排（IRIS + 后端 + 前端）
-├── .env.example              # 环境变量模板（IRIS/FHIR/LLM）
-├── init_data.py              # 建目标表（模拟远端数据库）
-├── tools/seed_fhir_demo.py   # （可选）手动灌 FHIR 演示样本；不在 backend 启动链
-├── tools/check_component_fidelity.py # 组件保真审计（存储定义 ⊆ Production，防重建丢件）
-├── LICENSE / NOTICE          # 许可与商标归属声明（termsrv 子模块等不随仓库分发的组件）
-├── docs/*.md                 # （本地）设计与计划文档，已 gitignore，不随仓库分发
-├── backend/                  # Flask 后端
-│   ├── app.py                # 应用入口（注册全部路由蓝图）
-│   ├── config.py             # IRIS/FHIR/LLM 配置
-│   ├── schemas/              # Pydantic 模型
-│   ├── services/             # repository(global/归一runtime) / connection_profiler(探查Agent) / mock_soap / fhir_client / profile_analyzer / llm_client / iris_connector / wsdl_importer / pipeline_validator / validate_agent / transformation_validator / type_registry
-│   └── routes/               # datasources / targets / ai / mappings / pipelines
-├── frontend/                 # Vue 3 + Element Plus
-│   └── src/
-│       ├── api/              # axios 封装 + dataflow.js（API）+ constants.js（类型枚举预留）
-│       ├── views/            # Home/Datasources/Assets/Recommend/Mappings/Pipelines/Targets/Agents
-│       ├── components/       # TypeSelect（类型选择器，预留禁用）
-│       ├── i18n/             # zh.js + en.js（中英双语文案）+ path.js（按语言前缀跳转）
-│       └── router/
-├── iris/                     # IRIS 侧代码
-│   ├── setup.sh              # 容器启动统一初始化（凭据/FHIR Server/编译）
-│   ├── init-password.sh      # superuser/SYS 凭据
-│   ├── src/demo/             # Production 组件类 + PipelineGenerator + PipelineQuery
-│   └── python/               # transform_handler.py（Embedded Python 转换逻辑）
-├── tools/                    # datakit 工具箱（`bash tools/datakit/run.sh list`）+ 校验/诊断脚本
-├── data/                     # IRIS 数据持久化（setup 时创建）
-└── knowledge -> 知识库软链接（可选，本地）
-```
-
-## 演示步骤（从零开始，页面选项随演示进度动态出现）
-
-> 系统启动后处于**空白演示态**：无预置数据源/目标/资产/映射；页面（资产/目标/可查看表）只出现你已登记的内容。
-> 重置环境：`bash tools/datakit/run.sh reset_ui_env.py`
-> （一键回到零起点，**脚本自带 26 项自检**：末尾 ✅/❌ 清单 + 退出码 0=干净；只查不改加 `--check-only`。
-> 旧脚本 `python cleanup_demo.py` 已过时：它不清 Ens 内部残留/生成类/动态发现的新表。）
-> **术语映射不用管**：事实源在**术语服务器**（独立容器 + 独立数据目录，重置不影响），运行期由管道经
-> **共享 BO**（`demo.TerminologyOperation`）实时查询——**没有本地缓存要预热**，重置后术语映射天然就位；
-> 若某个源编码服务器尚无映射，平台**默认降级**（保留源编码 + `meta.tag=unmapped`，不静默、不阻断），
-> 补录：`bash tools/datakit/run.sh term_map_build.py`（判定 Agent 产出候选并写回服务器，补录后**无需重新生成**）。
-> **CLINIC 演示数据**（界面「生成演示数据」按钮 / `tools/seed_clinic.py`）：**需先登记一个 SQL 数据源**
-> （演示默认 = `CLINIC` 命名空间，见 §B 第 1 步），否则脚本会给出明确指引（而不是抛 IndexError）。
-
-> **想一键跑通？** `bash tools/setup.sh && python3 tools/e2e_ui_flow.py`（自动完成 ①~⑤ 与 AI 匹配；见「快速启动 · 一条命令复刻完整演示」）
-
-**最短端到端路径**（约 10 分钟）：① 登记 SQL 数据源（演示默认 `CLINIC` 命名空间）→ ② 点「**生成演示数据**」→
-③ 登记 DB 目标（`jdbc:IRIS://iris:1972/USER`，写 `Patient`/`Observation`）→ ④「**AI 智能匹配**」确认字段映射 →
-⑤「管道监控」**生成管道** → ⑥ 目标数据下拉查看**落库行 / 消息 Completed**。
-
-### A. FHIR → DB（数据源 = FHIR 资源）
-1. **添加 FHIR 数据源**：「数据源管理」→ 端点**默认已填** `http://iris:52773/csp/healthshare/demofhir/fhir/r4/`（DemoFHIR = 默认 FHIR 源仓库）、认证 `superuser/SYS` → 注册 → **Profile 分析**（自动产出运行契约：版本/增量能力/健康）。
-2. **添加 DB 目标**：「转换目标」→ JDBC（表单**默认已填** `jdbc:IRIS://iris:1972/CLINIC` = SQL 目标默认库；本教程要写**平台内置目标表** `Patient`/`Observation`（在 `USER` 命名空间），故把 URL 改为 `jdbc:IRIS://iris:1972/USER`）、认证 superuser/SYS → 添加 → 联通测试 → 选 schema `SQLUser` → 勾选目标表（`Patient`/`Observation`）→ 分析列结构 → 保存。
-3. **AI 智能匹配**：选 `Patient` 资产 → AI 推荐字段映射 → 确认保存。
-4. **生成管道**：「管道监控」→ 生成 → FHIR 增量同步自动抓取 FHIR Server 数据 → 转换 → `Patient` 表落库（Pipelines 目标数据下拉动态可选 `Patient` 查看）。
-5. **看效果**：往 FHIR 写新资源（或用「生成模拟数据」按钮）→ 增量抓取 → 消息 Completed → 落库。
-
-### B. SQL → SOAP（数据源 = SQL 表，目标 = 第三方 SOAP 接口，Python mock 应答）
-1. **添加 SQL 数据源**：数据源向导 → JDBC 连接 → 选 schema → 选表 **`PatientSource`**（与 Patient 同结构的“业务库”演示表；选 **`Patient`** 也可以——造数脚本两张源表都支持）→ 分析列 → 自动生成轮询 Query。
-2. **添加 SOAP 目标**：转换目标 → SOAP → WSDL `/tmp/patient.wsdl`（内置**写入型 AddPatient**）→ 导入生成 BO + 实体分析（运行契约自动判定 `AddPatient → 写入型`、endpoint 可达）。
-3. **AI 智能匹配**：选 `PatientSource`（SQL 资产，列即字段）→ AI 推荐 → 确认（mapping 自动带 `target_type=SOAP`）。
-4. **生成管道**：SQLService 轮询 `PatientSource` → 转换 → `SOAPOp_PatientService` 调用 mock（WebServiceURL）→ mock 收到实体 → 落库 `PatientEntity` 表并回执。
-5. **看效果**：往 `PatientSource` 插几行患者 → SQLService 轮询投递 → Pipelines 消息 Completed + `PatientEntity` 可见（下拉动态含 `PatientEntity`/`PatientSource`）。
-   - **本场景可用脚本**（一步造数 + 自动校验落库；完整清单见 `tools/datakit/README.md` 「六.1 SQL → SOAP」）：
-     ```bash
-     # 源表 PatientSource（本节口径）
-     bash tools/datakit/run.sh gen_test_patient.py --source user --table PatientSource --count 3
-     # 源表 Patient（同一场景，换一张源表；也是脚本默认值）
-     bash tools/datakit/run.sh gen_test_patient.py --source user --count 3
-     # 复核：SOAP 落库 PatientEntity + 最近业务消息（不看脚本输出）
-     bash tools/datakit/run.sh check_pair_sink.py
-     ```
-   - 排错顺序：`diag_msgs.py`（消息头/扫描凭证）→ `diag_errors.py`（Ens 事件日志）→ `rescan_sql_source.py`（强制重扫 SQL 源）；
-     或在造数时加 `--force`（停 → 清扫描凭证 → 启，走全量重扫）。
-
-### C. 多管道并存（单 Production 内 FHIR→DB 与 SQL→SOAP 同时跑）
-- 前端一次确认多组转换关系后，生成 body 走 `pipelines: [组1, 组2]`；
-  `TransformProcess` 按来源（`SQLService`/`FHIRService`）路由到各自目标，消息互不干扰。
-- 注意：SQL 源表与 FHIR 目标表**不要用同一张**（否则 FHIR 写入会被 SQL 源再轮询产生回环，demo 已内置独立 `PatientSource` 表避免）。
-
-### D. 管道增量生成（建议接在 C 之后演示）
-
-1. **不改任何东西再点一次「生成」**：界面提示「所有数据管道均已存在且未变更（未重新生成）」，
-   `/api/pipelines/items` 组件清单与实例"生成次数"**不变**（不重跑 AI、不重启生产）。
-2. **只勾选其中一组**提交：其余管道组件**原样保留**（后端把未提交的既有管道按存储定义自动并入）；
-   若提交里含**同身份重复组**，会被合并并在响应 `dup_merged` 中回报（不产生第二套实例）。
-3. **需要复位某条管道**：打开页面 **「强制重新生成」** 开关后点生成（`force=true`），该组会重新设计组件（AI 重新决策）。
-4. **确认没有丢件**（可选）：`python3 tools/check_component_fidelity.py`
-   —— 逐项比对"每个管道的存储定义 ⊆ Production 组件"，做三次审计（基线 / 复用提交 / 强制重建）并输出缺失清单。
-
-### E. SQL → FHIR（患者事务：业务库 4 张表 → 4 类 FHIR 资源，含术语双编码）
-
-这是最能体现「AI 决策 + 术语转换」的一条链路：HIS 风格业务库的**患者主表 + 就诊 / 诊断 / 药嘱**
-经 AI 映射为 **Patient / Encounter / Condition / MedicationRequest**，中文诊断由术语服务器转成 SNOMED 双编码。
-
-1. **添加 SQL 数据源**：数据源向导 → JDBC `jdbc:IRIS://iris:1972/CLINIC` → 勾选
-   **`Patient`/`Encounter`/`Diagnosis`/`MedicationOrder`**（4 张一起）→ 分析列结构 → 自动生成轮询 Query。
-2. **点「生成演示数据」**（等价 `bash tools/datakit/run.sh seed_clinic.py`）：默认写入 **3 位患者 + 就诊 / 诊断 / 药嘱**
-   （中文诊断与药品名取自术语服务器的中文术语集，故可直接用）。
-3. **添加 FHIR 目标**：「转换目标」→ FHIR，端点默认 `…/csp/healthshare/fhirserver/fhir/r4/`
-   （`FHIRSERVER` = 默认**目标**仓库）→ 注册 → 刷新候选资源。
-4. **AI 智能匹配**：逐个资产确认（典型结果 `Patient`→Patient、`Encounter`→Encounter、`Diagnosis`→Condition、
-   `MedicationOrder`→MedicationRequest；诊断列由 AI 判为 `term_map:cn2snomed`）→ 保存映射。
-5. **生成管道**：一次提交这 4 组 → 生成时平台做**许可调度**（超出 8 个业务主机单元的分组**照旧生成但初始停用**，
-   在「数据管道」卡片一键切换）。
-6. **看效果**：`FHIRQueue` 落库、FHIR 仓库计数实测 **Patient 3 / Encounter 4 / Condition 7 / MedicationRequest 7**；
-   `Condition.code` 为**双 coding**（源 `urn:cn-nhsa:icd10-gbt2016` + SNOMED `http://snomed.info/sct`，
-   术语服务器无该映射时按「术语判定三态」降级，见「说明与限制」），
-   `Condition.subject` / `.encounter` 用 `urn:uuid:` 引用对应 Patient / Encounter。
-   - 造数 + 自动校验（造 CLINIC 源并校验 FHIR 落地 / 中文 / 引用）：
-     `bash tools/datakit/run.sh gen_test_patient.py --count 2 --family 赵 --given 敏 --diagnosis 糖尿病 --drug 阿司匹林`
-   - 查 FHIR 落地情况：`bash tools/datakit/run.sh check_fhir.py`（或 Pipelines 页「目标数据」下拉）
-
-## AI 操作边界（2026-09-14：保留限制，简化机制）
-
-> 背景：本项目曾发生一次 AI **越界删除其它项目容器**的事故（其它 3 个项目的 7 个容器及其网络被删，
-> 其中一个 IRIS 库不可恢复）。此后为"AI / 脚本的执行通道"立了边界规则。
-
-1. **规则（最根本）**：AI 只能写/删 **本仓库**、**本项目容器**（`dataflow-*` / `iris-terminology`）、**知识库**；
-   其它项目与宿主目录一律只读——只能在"枚举清单 → 用户显式确认 → 执行"之后动。
-   完整规则与三段式协议见 [`tools/guard/README.md`](tools/guard/README.md)（会话级规则文件本身为本地文件，不随仓库分发）。
-2. **CLI 守卫**：执行 docker 前 `source tools/guard/docker_guard.sh` —— 本项目之外的破坏性操作被拒（rc=77）；
-   路径校验用 `python3 tools/guard/scope_guard.py check <路径>...`。
-3. **文件沙箱（可选强化）**：`./tools/guard/ai-session.sh` 起的受限会话（macOS `sandbox-exec`）**写入**只允许
-   仓库 / 知识库 / `/tmp` / `~/Library/Caches`，其余内核拒绝。
-4. 需要全权操作其它项目：在普通终端执行（边界只约束 AI 会话与受守卫的脚本）。
-
-细节、实测数据与已知坑见 [`tools/guard/README.md`](tools/guard/README.md)。
-
-> ⚠ 2026-09-14：此前还上过一层「受限 Docker API 代理」（`DOCKER_HOST` → 中间代理，按 daemon 事实裁决
-> 破坏性请求）——**已回滚**：过度复杂，且 `docker cp` 的流式上传体被判不了归属而 fail-closed 误拒，
-> 反而打断日常操作。现在不再有代理层，docker 走本机真实 socket。
-
-
-## 常见问题（排障）
-
-| # | 症状 | 处理 |
-|---|---|---|
-| 1 | 拉不到 IRIS 镜像 / 提示未认证 | 镜像来自 InterSystems 私有仓库：免费注册后 `docker login containers.intersystems.com`（见「新环境前置 0」） |
-| 2 | 容器内 `sh: 1: /shared/setup.sh: not found`；宿主 `set: pipefail: invalid option name` | Windows 把脚本检出成了 CRLF：`git config --global core.autocrlf false` 后**重新 clone**（见「新环境前置 7」） |
-| 3 | 首次启动很慢 / 停在「等待核心服务就绪」 | 正常：全新 IRIS 要建 FHIR 双仓库与目标表（约 1–5 分钟）；`setup.sh` 已做**有界等待**，之后才建表/灌库 |
-| 4 | 重建容器后术语转换失效，或 CLINIC 造数取不到中文诊断/药品 | 术语**概念与映射**在术语服务器**容器内部 DB**，重建即丢 → 重跑 `bash tools/term_data_load.sh` + `bash tools/term_map_import.sh`（或直接 `bash tools/setup.sh`，幂等） |
-| 5 | 生成管道 500：`<CLASS DOES NOT EXIST> … demo.TerminologyOperation` | `iris/setup.sh` 编译清单必须含 `demo.TerminologyOperation`/`TermLookupRequest`/`TermLookupResponse`（已修） |
-| 6 | 生成管道 500：`ERROR #5007: Directory name '/dur/generated/' is invalid` | 生成物目录必须是 **`/dur/generated`**（不是 `$ISC_DATA_DIRECTORY/generated`）；`iris/setup.sh` 第 7b 步已自动创建 + `chown irisowner`（已修） |
-| 7 | 只有 4 个容器、没有 `dataflow-embedding` | 演示**不需要**向量 ⇒ `setup.sh` 默认跳过；要试验术语向量化时 `docker compose up -d embedding`（见「术语向量化」） |
-| 8 | 想回到零起点 / 彻底清数据 | 重置登记：`bash tools/datakit/run.sh reset_ui_env.py`（26 项自检，`--check-only` 只查不改）；清库：Windows 命名卷 `docker volume rm dataflow-iris-dur`，macOS/Linux 删/改名 `data/iris` |
-| 9 | 能同时跑几条管道？ | 社区版许可 **8 个业务主机单元**（常驻 ≤7 个组件 + 1 个后端连接）；超出的管道**照旧生成但初始停用**，在「数据管道」卡片一键切换（自动让路其它管道） |
-| 10 | AI 接口报错 / 没有推荐结果 | `.env` 的 `LLM_*` 未填或不可达 ⇒ 平台**显式报错**（不静默降级）；用 `docker exec dataflow-backend python /tmp/test_llm.py` 自检（见「LLM 配置」） |
-
-## 说明与限制
-
-- 本项目为技术演示用途，示例数据均为程序生成，不涉及真实患者信息。
-- IRIS 登录统一 `superuser` / `SYS`；FHIR 资源读写需 Basic Auth（仅 `/metadata` 匿名公开）。
-- **FHIR 源/目标默认分工**（2026-09-16 起）：**源 = `DEMOFHIR`**（第二个独立仓库，UI「数据源管理」表单与
-  `FHIRConfig.BASE_URL` 的默认值）、**目标 = `FHIRSERVER`**（实例自带，UI「转换目标」表单与
-  `FHIRConfig.TARGET_BASE_URL` 的默认值）；两个仓库数据互不可见，重置脚本会同时清空两者。
-- SOAP 目标演示默认指向 **Python mock**（`backend/services/mock_soap.py`，`Config.MOCK_SOAP_URL`）；
-  真实接入时在目标连接信息里填真实 endpoint 即可（Adapter `WebServiceURL` 覆盖 WSDL 地址）。
-- **术语判定三态语义**（运行期由共享 BO `demo.TerminologyOperation` 实时查询术语服务器）：
-  `active` → 追加目标体系 coding（双 coding，如 `E11.900` + SNOMED `44054006`）；
-  **`negative`（已判定无匹配，如"依折麦布/阿托伐他汀"复方制剂）→ 只保留源编码、不追加目标编码、也不打 `unmapped` 标记**；
-  `missing` / 调用失败 → 保留源编码并在资源打 `meta.tag=urn:cn-nhsa:term-map|unmapped`（不阻断，可补录；
-  补录后**无需重新生成**，运行期即时生效）。
-- **许可与管道切换**：社区版 IRIS 许可为 **8 个业务主机单元** → 多条管道不能同时运行，超出的分组生成后为 `suspended`；
-  在「数据管道」卡片点**启用/停用**做**一键切换**（许可不足时自动让路其它活动管道，响应 `disabled_others` 列出被让路组件）。
-- **组件保真自查**：`python3 tools/check_component_fidelity.py`（重建/复用后逐项确认没有丢组件）；
-  工具箱清单：`bash tools/datakit/run.sh list`（含 `test_incremental_pipeline.py` 等离线回归与造数脚本）。
-- 目标表写入为 UPSERT（存在则更新），管道定时拉取重复执行不冲突。
-- `init_data.py` 每次后端启动会**重建目标表**（DROP+CREATE，适合演示；生产环境不应自动清表）。
-- FHIR 演示数据**不在启动时灌**（2026-09-16 起）：用时现造（`tools/gen_test_patient.py`、`generate_mock_data.py --fhir N`）；
-  需要"库里本就有历史存量"时手动 `bash tools/datakit/run.sh seed_fhir_demo.py`。
-- **演 FHIR 源不必先造数**（2026-09-18 起）：数据源的字段发现为「真实数据（优先）→ 服务器 StructureDefinition →
-  **平台 FHIR 规范快照**（US Core 已建模 11 类）→ **AI 按 R4 规范补全**（其余类型）」，来源在运行契约
-  `note.fields.provenance` 与 UI「运行契约」列可见；有了真实数据后下次分析会自动改用真实数据形态。
-  造数仍可选（真实数据形态最准）：`bash tools/datakit/run.sh seed_fhir_demo.py`。
-- **Windows + Docker Desktop：IRIS「首次启动搬迁 / 门户 52773」两个坑（已自动规避）**：
-  ① **首次启动搬迁失败**：IRIS 以 `irisowner` 运行，首次启动要把实例数据"搬迁"进 `$ISC_DATA_DIRECTORY`；而
-  **Windows 绑定挂载**经 Docker Desktop 文件共享层时 `chown`/`rename` 等 POSIX 元数据操作不可靠（实测三种调用方式
-  分别把新建目录呈现为 `root` / `ubuntu(1000)` / 正确属主，chown 全部 `EPERM`）→
-  `Error while moving data directories ERROR #5001: Error executing chown irisowner:irisowner /dur/irissys/: Error:1:`
-  → 容器 `Exited (1)`；
-  ② **私有 Web 服务器 pid 文件写不进**：Apache 建 pid 要 `open(tmp) → write → rename`，同一限制会返回 `EPERM`
-  （`httpd/logs/error.log: AH10231 Failed creating pid file`）→ httpd 静默退出、**门户与 FHIR 端点全部无响应**
-  （`curl` 空响应 / exit 52），而容器健康检查（进程级）仍报 healthy —— 两个坑都是**静默失效**，只有真去连 HTTP 才暴露。
-  **已入库的修法**：
-  - `docker-compose.windows.yml`：把 `/dur` 从 `./data/iris` **绑定挂载**换成**命名卷** `dataflow-iris-dur`
-    （Docker 虚拟机内真实 ext4，`chown`/`rename` 全部正常）→ 一次消除 ① 与 ②；`tools/setup.sh` 在 Windows/WSL 下
-    **自动启用**（设置 `COMPOSE_FILE`）+ 建卷 + 把卷根属主改为 irisowner；
-  - `iris/setup.sh` 第 7 步：把私有 Web 服务器的 `PidFile` 指到容器内 `/tmp/httpd.pid`，必要时自动拉起 httpd 并核验门户
-    （对 macOS/Linux 或仍用绑定挂载的手工 compose 场景同样有效）。
-  - ⚠ **手工用 compose 时必须带上覆盖文件**，否则会退回绑定挂载、读写另一份数据目录：
-    `docker compose -f docker-compose.yml -f docker-compose.windows.yml ps`；
-    清数据 = `docker volume rm dataflow-iris-dur`。
-  - ⚠ **容器重启后** Docker Desktop 的宿主端口转发可能需数十秒才重建，期间宿主 `curl` 会短暂返回 000，稍等再试
-    （容器内是立即就绪的）。
-- **英文界面（`/en`）是界面壳**：与中文界面共用同一套组件与 API，文案来自 `zh.js` / `en.js`；由后端 / AI
-  产生的**动态内容**（资产语义、报错、日志、落库数据）保持其源语言，不做翻译。
-- **注意：不要修改 IRIS 的 Web Application / Security 权限**（管理门户与 Ensemble 门户依赖，属外部环境）。
-
-## 许可
-
-Apache-2.0 —— 见 `LICENSE`；`NOTICE` 列明商标归属与**不随仓库分发**的组件（JDBC 驱动、原始术语数据、termsrv 子模块）。
+Project code: [Apache-2.0](./LICENSE). See [NOTICE](./NOTICE) for attribution and
+the separate treatment of government-source knowledge materials. No
+InterSystems images, license keys, model credentials or full local archive are
+distributed.

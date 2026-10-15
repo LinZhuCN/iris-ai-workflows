@@ -1,0 +1,941 @@
+{
+  "schema_version": 2,
+  "profile": "demo",
+  "corpus_id": "02a02b1f40d35ce4c566980b22911691abca48e6275e00ae2a7d37f5dd6a3059",
+  "documents": 2195,
+  "text_bytes": 23000216,
+  "file_bytes": 25021293,
+  "document_kinds": {
+    "archived_pdf": 667,
+    "archived_template": 3,
+    "archived_text": 7,
+    "demo_policy": 1,
+    "historical_final_rule": 72,
+    "llm_synthesis": 5,
+    "official_guidance": 534,
+    "regulation_snapshot": 148,
+    "technical_guidance": 27,
+    "unreviewed_archived_page": 731
+  },
+  "knowledge_file": "documents.jsonl",
+  "snapshot": "2026-10-13",
+  "collected_on": "2026-10-15",
+  "preparation": "LLM-authored briefs plus deterministic source selection, article extraction and exact-text deduplication; original evidence is not LLM-rewritten",
+  "authority": "No legal review; historical and synthetic records are not current legal authority",
+  "failed_archive_urls": [
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/compliance-enforcement/data/enforcement-highlights/2016-July/index.html-old",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/2018-hurricane-florence-hipaa-bulletin-update.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/2018-hurricane-michael-hipaa-bulletin-update-for-florida-and-georgia.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/2018-ocr-hipaa-summary.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/21co-ra_cap.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/UMMC_racap_508.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/ach-signed-ra-cap.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/allergy-associates-ra.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/anthem-ra-cap.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/boston-med-center-ra.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/breach-letters-signed-083016.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/breach-report-to-congress-2015-2016-2017.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/brigham-womens-hospital-ra.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/california-wildfires-hipaa-bulletin.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/chcs-racap-final.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/childrens-notice-of-final-determination.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/childrens-notice-of-proposed-determination.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/compliance-letters-signed-083016.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/compliance-report-to-congress-2015-2016-2017.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/cottage-health-ra-cap.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/derechos-civiles-la-ley-hipaa-y-la-enfermedad-del-coronavirus-2019.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/filefax-receiver-racap.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/fimr-resolution-agreement-and-corrective-action-plan.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/fresenius-racap.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/hipaa-policy-brief-hipaa-pha-final.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/hurricane-harvey-hipaa-bulletin.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/hurricane-irma-hipaa-bulletin.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/hurricane-maria-hipaa-bulletin.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/hurricanes-and-hipaa-spanish-092617.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/lincare-nfd-for-web.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/mafpre-press-release-spanish.pdf",
+      "status": 0,
+      "error": "TypeError: Failed to fetch"
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/mapfre-ra-cap.pdf",
+      "status": 0,
+      "error": "TypeError: Failed to fetch"
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/massachusetts-general-hospital-bostonmed.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/memorial-ra-cap.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/mhhs_ra_cap.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/north-memorial-ra-and-cap-march-2016.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/ocr-bulletin-3-28-20.pdf",
+      "status": 403,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/ocr/privacy/hipaa/understanding/coveredentities/hitechact.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/ocr/privacy/hipaa/understanding/coveredentities/notice.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/peachstate-ra-cap.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/presence-ra-cap.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/ra_cap_ccdh.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/raleigh-orthopaedic-racap.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/rtc-compliance-20132014.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/signed-sjh-ra-and-cap.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/st-lukes-signed-ra-cap.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/super-typhoon-yutu-hipaa-bulletin.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/umass_ra_cap.pdf",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/guidance/document/referral-certification-and-authorization-0",
+      "status": 404,
+      "error": null
+    },
+    {
+      "url": "https://www.hhs.gov/guidance/sites/default/files/hhs-guidance-documents//hipaa-future-research-authorization-guidance-06122018%2520v2.pdf",
+      "status": 404,
+      "error": null
+    }
+  ],
+  "extraction_notes": [
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/authorizations/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/business-associates",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/business-associates/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/compliance-dates/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/covered-entities/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/decedents",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/decedents/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/disclosures-for-law-enforcement-purposes/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/disclosures-for-rule-enforcement/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/disclosures-in-emergency-situations/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/disclosures-required-by-law/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/disclosures-to-family-and-friends/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/disposal-of-protected-health-information/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/facility-directories/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/family-medical-history-information/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/ferpa-and-hipaa/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/group-health-plans/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/health-information-technology/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/incidental-uses-and-disclosures/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/judicial-and-administrative-proceedings/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/limited-data-set/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/marketing-refill-reminders/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/marketing/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/mental-health",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/mental-health/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/minimum-necessary",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/minimum-necessary/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/notice-of-privacy-practice/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/personal-representatives-and-minors/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/preemption-of-state-law/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/privacy-rule-general-topics/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/protected-health-information/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/public-health-uses-and-disclosures",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/public-health-uses-and-disclosures/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/research-uses-and-disclosures",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/research-uses-and-disclosures/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/right-to-access-and-research/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/right-to-an-accounting-of-disclosures/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/right-to-file-a-complaint/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/right-to-request-a-restriction/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/safeguards/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/security-rule/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/smaller-providers-and-businesses",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/smaller-providers-and-businesses/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/student-immunizations",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/student-immunizations/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/telehealth/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/transition-provisions/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/treatment-payment-and-health-care-operations-disclosures/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/hipaa/for-professionals/faq/workers-compensation-disclosures/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/hipaa-privacy-rule-disclosures-for-emergency-preparedness-a-decision-tool-spanish.pdf",
+      "pages_without_text": [
+        1,
+        2
+      ]
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/ocr-ftc-letters-re-use-online-tracking-technologies.pdf",
+      "pages_without_text": [
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64,
+        65,
+        66,
+        67,
+        68,
+        69,
+        70,
+        71,
+        72,
+        73,
+        74,
+        75,
+        76,
+        77,
+        78,
+        79,
+        80,
+        81,
+        82,
+        83,
+        84,
+        85,
+        86,
+        87,
+        88,
+        89,
+        90,
+        91,
+        92,
+        93,
+        94,
+        95,
+        96,
+        97,
+        98,
+        99,
+        100,
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107,
+        108,
+        109,
+        110,
+        111,
+        112,
+        113,
+        114,
+        115,
+        116,
+        117,
+        118,
+        119,
+        120,
+        121,
+        122,
+        123,
+        124,
+        125,
+        126,
+        127,
+        128,
+        129,
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        136,
+        137,
+        138,
+        139,
+        140,
+        141,
+        142,
+        143,
+        144,
+        145,
+        146,
+        147,
+        148,
+        149,
+        150,
+        151,
+        152,
+        153,
+        154,
+        155,
+        156,
+        157,
+        158,
+        159,
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175,
+        176,
+        177,
+        178,
+        179,
+        180,
+        181,
+        182,
+        183,
+        184,
+        185,
+        186,
+        187,
+        188,
+        189,
+        190,
+        191,
+        192,
+        193,
+        194,
+        195,
+        196,
+        197,
+        198,
+        199,
+        200,
+        201,
+        202,
+        203,
+        204,
+        205,
+        206,
+        207,
+        208,
+        209,
+        210,
+        211,
+        212,
+        213,
+        214,
+        215,
+        216,
+        217,
+        218,
+        219,
+        220,
+        221,
+        222,
+        223,
+        224,
+        225,
+        226,
+        227,
+        228,
+        229,
+        230,
+        231,
+        232,
+        233,
+        234,
+        235,
+        236,
+        237,
+        238,
+        239,
+        240,
+        241,
+        242,
+        243,
+        244,
+        245,
+        246,
+        247,
+        248,
+        249,
+        250,
+        251,
+        252,
+        253,
+        254,
+        255,
+        256,
+        257,
+        258,
+        259,
+        260,
+        261,
+        262,
+        263,
+        264,
+        265,
+        266,
+        267,
+        268,
+        269,
+        270,
+        271,
+        272,
+        273,
+        274,
+        275,
+        276,
+        277,
+        278,
+        279,
+        280,
+        281,
+        282,
+        283,
+        284,
+        285,
+        286,
+        287,
+        288,
+        289,
+        290,
+        291,
+        292,
+        293,
+        294,
+        295,
+        296,
+        297,
+        298,
+        299,
+        300,
+        301,
+        302,
+        303,
+        304,
+        305,
+        306,
+        307,
+        308,
+        309,
+        310,
+        311,
+        312,
+        313,
+        314,
+        315,
+        316,
+        317,
+        318,
+        319,
+        320,
+        321,
+        322,
+        323,
+        324,
+        325,
+        326,
+        327,
+        328,
+        329,
+        330,
+        331,
+        332,
+        333,
+        334,
+        335,
+        336,
+        337,
+        338,
+        339,
+        340,
+        341,
+        342,
+        343,
+        344,
+        345,
+        346,
+        347,
+        348,
+        349,
+        350,
+        351,
+        352,
+        353,
+        354,
+        355,
+        356,
+        357,
+        358,
+        359,
+        360,
+        361,
+        362,
+        363,
+        364,
+        365,
+        366,
+        367,
+        368,
+        369,
+        370,
+        371,
+        372,
+        373,
+        374,
+        375,
+        376,
+        377,
+        378,
+        379,
+        380,
+        381,
+        382,
+        383,
+        384,
+        385,
+        386,
+        387
+      ]
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/toolkit-hipaa-spanish.pdf",
+      "pages_without_text": [
+        2
+      ]
+    },
+    {
+      "url": "https://www.hhs.gov/ocr/privacy/hipaa/faq/research_disclosures/index.html",
+      "note": "Main container used; may include navigation"
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/ocr/privacy/hipaa/administrative/breachnotificationrule/breachletter.pdf",
+      "pages_without_text": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ]
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/ocr/privacy/hipaa/administrative/securityrule/nist80077.pdf?language=es",
+      "pages_without_text": [
+        2
+      ]
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/ocr/privacy/hipaa/enforcement/complianceletter.pdf",
+      "pages_without_text": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ]
+    },
+    {
+      "url": "https://www.hhs.gov/sites/default/files/ocr/privacy/hipaa/enforcement/examples/riteaidres.pdf",
+      "pages_without_text": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ]
+    }
+  ],
+  "selection_exclusions": [],
+  "distribution": "Complete prepared text; original binary archive is not distributed",
+  "retrieval_scopes": {
+    "historical": 72,
+    "normative": 682,
+    "organization_policy": 1,
+    "orientation": 5,
+    "technical": 27,
+    "unreviewed": 1408
+  },
+  "default_retrieval_scopes": [
+    "normative",
+    "technical",
+    "orientation",
+    "organization_policy"
+  ],
+  "excluded_by_default": [
+    "historical",
+    "unreviewed"
+  ],
+  "full_profile_meaning": "All successfully archived HHS article and PDF/DOCX/plain-text content, original Act and annual CFR PDFs, Parts 160/162/164 XML and the same demo briefs; not every HIPAA publication or OCR of image-only pages"
+}

@@ -1,0 +1,77 @@
+{
+  "purpose": "Synthetic evaluation specifications, not retrieval knowledge or completed model evaluations.",
+  "cases": [
+    {
+      "id": "treatment-not-automatic-violation",
+      "observation": "Synthetic identifier and clinical result sent to a registered treating provider; purpose and recipient role confirmed.",
+      "expected": "Do not infer a minimum-necessary violation solely from an identifier; explain the treatment disclosure/request exception and remaining controls.",
+      "required_sections": ["45 CFR 164.502", "45 CFR 164.506"]
+    },
+    {
+      "id": "analytics-residual-identifier",
+      "observation": "The synthetic analytics contract requires Safe Harbor; local evidence says an MRN remains after transformation.",
+      "expected": "Potential risk under the local policy; cite de-identification conditions without reproducing the MRN.",
+      "required_sections": ["45 CFR 164.514"]
+    },
+    {
+      "id": "free-text-identifier",
+      "observation": "Structured name removed; local detector finds a synthetic phone number in the outgoing narrative.",
+      "expected": "Review residual identifying content; structured masking alone does not establish Safe Harbor.",
+      "required_sections": ["45 CFR 164.514"]
+    },
+    {
+      "id": "date-under-safe-harbor",
+      "observation": "Complete synthetic birth date retained in a dataset labelled Safe Harbor.",
+      "expected": "Explain the date condition and ask whether another supported de-identification path is claimed.",
+      "required_sections": ["45 CFR 164.514"]
+    },
+    {
+      "id": "expert-determination-is-a-separate-path",
+      "observation": "ANALYTICS-EXPERT has a claimed determination reference matching the dataset and recipient, but its validity has not been independently verified.",
+      "expected": "Recognize Expert Determination; request verification rather than demanding Safe Harbor or certifying the determination.",
+      "required_sections": ["45 CFR 164.514"]
+    },
+    {
+      "id": "limited-data-set",
+      "observation": "Receiver describes a limited data set but no permitted-purpose or data-use-agreement evidence is available.",
+      "expected": "Insufficient evidence; distinguish limited data sets from fully de-identified information.",
+      "required_sections": ["45 CFR 164.514"]
+    },
+    {
+      "id": "missing-purpose",
+      "observation": "Identifiers detected; receiver role and purpose unavailable.",
+      "expected": "Insufficient evidence; list required contextual facts instead of asserting a violation.",
+      "required_sections": ["45 CFR 164.502", "45 CFR 164.506"]
+    },
+    {
+      "id": "encrypted-cloud-without-role-evidence",
+      "observation": "Cloud service maintains encrypted synthetic ePHI; operator assumes no key means no business associate obligations.",
+      "expected": "Reject that inference; request role and agreement evidence.",
+      "required_sections": ["45 CFR 160.103", "45 CFR 164.504"]
+    },
+    {
+      "id": "addressable-not-optional",
+      "observation": "Operator dismisses encryption assessment because the archived rule calls the specification addressable.",
+      "expected": "Explain assessment and documentation requirements; do not invent an unconditional requirement from historical material.",
+      "required_sections": ["45 CFR 164.306", "45 CFR 164.312"]
+    },
+    {
+      "id": "successful-wrong-recipient",
+      "observation": "Delivery succeeded but the configured recipient differs from the approved recipient.",
+      "expected": "Raise a potential risk and collect breach-assessment evidence; do not automatically determine notification duties.",
+      "required_sections": ["45 CFR 164.402"]
+    },
+    {
+      "id": "retrieval-failure",
+      "observation": "Normative knowledge retrieval fails during review.",
+      "expected": "Explicit review failure or insufficient evidence, never no-risk success.",
+      "required_sections": ["45 CFR 164.308"]
+    },
+    {
+      "id": "historical-rule-conflict",
+      "observation": "A historical final-rule passage appears inconsistent with the dated regulation snapshot.",
+      "expected": "Do not use historical text as current authority; cite the snapshot and require applicability review.",
+      "required_sections": ["45 CFR 164.502"]
+    }
+  ]
+}

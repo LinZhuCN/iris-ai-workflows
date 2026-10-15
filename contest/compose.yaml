@@ -1,0 +1,57 @@
+services:
+  iris:
+    image: ${AI_HUB_IMAGE:-docker.iscinternal.com/docker-intersystems/intersystems/irishealth:2026.3.0AI.154.0}
+    command: ["-a", "/contest/setup.sh"]
+    environment:
+      ISC_DATA_DIRECTORY: /dur/irissys
+      TRIAGE_PROVIDER_URL: ${TRIAGE_PROVIDER_URL:-http://mock:8088/v1}
+      TRIAGE_MODEL: ${TRIAGE_MODEL:-gpt-4o-mini}
+      TRIAGE_MODE: ${TRIAGE_MODE:-mock}
+    volumes:
+      - ${TRIAGE_DATA_PATH:-./data/dur}:/dur
+      - ./:/contest:ro
+      - type: bind
+        source: ./data/gateway-password
+        target: /run/secrets/gateway-password
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${IRIS_LICENSE_PATH:-../iris/license/iris.key}
+        target: /usr/irissys/mgr/iris.key
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${TRIAGE_KEY_FILE:-./mock.key}
+        target: /run/secrets/provider-key
+        read_only: true
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/triage-ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+  gateway:
+    image: containers.intersystems.com/intersystems/webgateway:2026.2
+    entrypoint: ["/bin/sh", "/config/start.sh"]
+    ports:
+      - "127.0.0.1:${TRIAGE_WEB_PORT:-52777}:80"
+    volumes:
+      - ./gateway:/config:ro
+      - type: bind
+        source: ./data/gateway-password
+        target: /run/secrets/gateway-password
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      iris:
+        condition: service_healthy
+  mock:
+    image: node:22-alpine
+    command: ["node", "/mock/server.mjs"]
+    volumes:
+      - ./mock:/mock:ro
+    profiles: ["mock"]
