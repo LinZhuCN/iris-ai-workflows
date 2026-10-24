@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "runtime_version": "staged-risk-v3",
+  "base_contract_hash": "a305653fb3f84ea02e4ab7dc8b948afb82ccf72e8f75b51a7d4a427d44f7ab10",
+  "contract_hash": "041bf4feb6b9667e581dd703c9368adb3bb55e223413a5e9e627ca56b4077238",
+  "suite_fingerprint": "ff4d8bb0eea7018cdd885d1ea668050e30c0183c1bc0f394bc0adff75adfcad6",
+  "expectations_fingerprint": "eca28c3d3aea0955e15fd6d7429c00559ee23586b96c72914c8c2d5b78f3f566",
+  "change": "judge_prompt_only",
+  "model_execution_authorized": false,
+  "limitations": [
+    "Only judge instructions change relative to v2; locator, schema, evidence and aggregation remain unchanged",
+    "No model output filtering: every missing-information item still contributes to unresolved",
+    "Prompt and deterministic tests do not measure semantic improvement; no v3 model run is authorized",
+    "The six known synthetic development cases are not a held-out evaluation"
+  ]
+}

@@ -19,3 +19,4 @@
 ## 开发辅助资料
 
 - [IRIS Agentic Dev 与 Interop Skills 调研](./IRIS-Agentic-Dev-Interop-Skills.md)
+- [往届获奖项目调研、写作经验与本轮参赛稿件](./Contest-winner-writing-research-2026-10-25.md)

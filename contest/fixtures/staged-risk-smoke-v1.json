@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "suite": "staged-risk-smoke-v1",
+  "classification": "synthetic_development_not_held_out",
+  "cases": [
+    {
+      "id": "smoke-01",
+      "packet": {
+        "synthetic": true,
+        "stage": "after_send",
+        "facts": [
+          {"id": "f1", "kind": "observation", "origin": "synthetic_destination_check", "verification": "verified", "text": "A covered provider sent a PHI-bearing treatment message. The verified intended recipient was the treating clinic, but the verified actual destination was a different, unrelated recipient."},
+          {"id": "f2", "kind": "claim", "origin": "synthetic_operator_statement", "verification": "unverified", "text": "The operator says a separate authorization might permit sending to the actual recipient."},
+          {"id": "f3", "kind": "missing_information", "origin": "synthetic_investigation", "verification": "unknown", "text": "Whether any separate permission applies to the actual recipient has not been established."}
+        ],
+        "required_questions": [
+          {"topic": "recipient_purpose", "fact_ids": ["f1", "f2", "f3"], "question": "Assess the observed recipient and stated purpose; distinguish incident evidence from an unverified separate basis."}
+        ]
+      }
+    },
+    {
+      "id": "smoke-02",
+      "packet": {
+        "synthetic": true,
+        "stage": "before_send",
+        "facts": [
+          {"id": "f1", "kind": "observation", "origin": "synthetic_treatment_record", "verification": "verified", "text": "The sender is a covered provider. A PHI-bearing referral is intended for a verified treating provider for treatment of the individual. The configured recipient exactly matches that verified treating provider."},
+          {"id": "f2", "kind": "observation", "origin": "synthetic_scope_check", "verification": "verified", "text": "The message contains ordinary referral data, not psychotherapy notes or substance-use-disorder records. No sale, marketing, agreed restriction, conflicting notice or other special prohibition applies in the supplied scenario."},
+          {"id": "f3", "kind": "observation", "origin": "synthetic_payload_check", "verification": "verified", "text": "Names and full service dates remain in the treatment referral. De-identification is not the asserted disclosure basis."}
+        ],
+        "required_questions": [
+          {"topic": "recipient_purpose", "fact_ids": ["f1", "f2", "f3"], "question": "Check this stated treatment recipient/purpose only; do not turn it into an analytics de-identification requirement."}
+        ]
+      }
+    },
+    {
+      "id": "smoke-03",
+      "packet": {
+        "synthetic": true,
+        "stage": "before_send",
+        "facts": [
+          {"id": "f1", "kind": "observation", "origin": "synthetic_export_plan", "verification": "verified", "text": "A covered provider plans an analytics export using Safe Harbor as its sole approved release path for this export."},
+          {"id": "f2", "kind": "observation", "origin": "synthetic_payload_check", "verification": "verified", "text": "The export retains medical record numbers and full individual admission dates. No actual patient values are supplied in this synthetic test."},
+          {"id": "f3", "kind": "observation", "origin": "synthetic_release_review", "verification": "verified", "text": "The scenario explicitly establishes that no expert determination was performed. No other release path has been approved for this export; this is an affirmative scenario fact, not an inference from a missing document."},
+          {"id": "f4", "kind": "local_policy", "origin": "synthetic_release_policy", "verification": "verified", "text": "This synthetic organization's approved export plan requires successful Safe Harbor verification before this specific export. This is a local prerequisite, not a claim that HIPAA has only one release path."}
+        ],
+        "required_questions": [
+          {"topic": "deidentification", "fact_ids": ["f1", "f2", "f3", "f4"], "question": "Check the explicitly selected release path against the observed data and distinguish local release failure from definitive illegality."}
+        ]
+      }
+    },
+    {
+      "id": "smoke-04",
+      "packet": {
+        "synthetic": true,
+        "stage": "before_send",
+        "facts": [
+          {"id": "f1", "kind": "observation", "origin": "synthetic_expert_review", "verification": "verified", "text": "For this analytics export a person with appropriate statistical and scientific knowledge and experience applied generally accepted methods, determined a very small identification risk for the anticipated recipient using reasonably available information, and documented the methods and result."},
+          {"id": "f2", "kind": "observation", "origin": "synthetic_release_review", "verification": "verified", "text": "The documented expert determination covers this exact data and anticipated recipient, including the retained full dates. Safe Harbor is not the selected path. No contrary identification evidence is supplied."},
+          {"id": "f3", "kind": "claim", "origin": "synthetic_operator_statement", "verification": "unverified", "text": "The operator's separate explanation is that encrypting the file automatically makes it de-identified. This explanation is not the documented expert's reasoning."}
+        ],
+        "required_questions": [
+          {"topic": "deidentification", "fact_ids": ["f1", "f2", "f3"], "question": "Assess the established release path without substituting an operator's unsupported rationale or Safe Harbor for the documented expert determination."}
+        ]
+      }
+    },
+    {
+      "id": "smoke-05",
+      "packet": {
+        "synthetic": true,
+        "stage": "config_review",
+        "facts": [
+          {"id": "f1", "kind": "observation", "origin": "synthetic_configuration", "verification": "verified", "text": "A covered provider configured a future analytics export described as de-identified. No actual export or delivery has occurred."},
+          {"id": "f2", "kind": "claim", "origin": "synthetic_operator_statement", "verification": "unverified", "text": "The operator says the data will satisfy Safe Harbor, but that assertion has not been verified."},
+          {"id": "f3", "kind": "missing_information", "origin": "synthetic_review_gap", "verification": "unknown", "text": "The actual output fields and identifier-removal checks are unknown. No expert-determination facts are supplied; their absence here does not establish that no determination exists."}
+        ],
+        "required_questions": [
+          {"topic": "deidentification", "fact_ids": ["f1", "f2", "f3"], "question": "Identify the verification gap without converting missing information into an affirmative failed condition."}
+        ]
+      }
+    },
+    {
+      "id": "smoke-06",
+      "packet": {
+        "synthetic": true,
+        "stage": "after_send",
+        "facts": [
+          {"id": "f1", "kind": "observation", "origin": "synthetic_security_monitor", "verification": "verified", "text": "An isolated synthetic system reported a ransomware alert and service disruption. This packet supplies no disclosure, recipient, export or de-identification scenario."},
+          {"id": "f2", "kind": "missing_information", "origin": "synthetic_investigation_gap", "verification": "unknown", "text": "The cause, scope, PHI access and any notification duties have not been investigated. Security-incident and breach analysis is outside this narrow evidence template."}
+        ],
+        "required_questions": [
+          {"topic": "unclassified", "fact_ids": ["f1", "f2"], "question": "Record the unsupported issue for human investigation rather than manufacturing a disclosure or breach conclusion."}
+        ]
+      }
+    }
+  ]
+}

@@ -4,8 +4,132 @@ This fork adds a runtime AI Hub decision to an IRIS Interoperability Production.
 The inherited application stack has been removed from this fork's current tree;
 the root Compose entry now includes this isolated deployment. The upstream
 repository and other local projects are not modified.
-All contest application classes, messages, destinations and audit records live
-in the dedicated **TRIAGE** namespace, backed by its own database.
+
+**Live onboarding demo:** use the fixed
+[M5 onboarding instructions](./M5-ONBOARDING-DEMO.md) or
+[Chinese version](./M5-ONBOARDING-DEMO.zh-CN.md), starting at
+<http://localhost:5173/demo/m5>. Enter institution profiles, enroll the existing
+M5 Production, trigger a new message and authorize its real audit. The scoped
+reset archives M5 logical state without purging original messages/model reports
+or changing other demos.
+
+**Historical saved-results walkthrough:** follow the
+[fixed Production walkthrough and five-minute English recording script](./DEMO-WALKTHROUGH.md).
+For Chinese step-by-step operations, system URLs and presentation highlights,
+see the [Chinese demonstration guide](./DEMO-GUIDE.zh-CN.md).
+It inspects saved real treatment/risk/unknown results without new model calls,
+explains user-entered demo premises and preserves the first-pass repair history.
+It is not a claim that a video has already been recorded or published.
+
+For the new declaration-first workflow, see the
+[design, D1 implementation and development sequence](./DECLARATION-WORKFLOW-PLAN.md).
+D1 provides versioned proposal persistence and review/decision contracts.
+D2 adds real asynchronous AI Hub proposal review. All three acceptance scenarios
+now have validated real results: internal quality improvement/no risk identified,
+external marketing/risk identified, and unspecified secondary use/information
+required. The normal-use case passed on revision 3 after two retained failures.
+The [D3 browser workspace](http://localhost:5173/declarations) now supports new
+proposals, explicit AI review funding, results/evidence, revision history and
+human return/reject/approve decisions. D4 now adds exact-batch execution plans,
+approval/configuration checks, receiver revalidation and linked SQL readback
+receipts. After the authorized local two-host reload, a new browser-confirmed
+batch completed real BS/BP/BO delivery and SQL readback. Repeating its exact
+command twice returned the same receipt without another row or message.
+The first failed batch remains preserved with zero SQL rows.
+D5 now automatically captures delivered declaration batches and compares actual
+use with their exact approved revision after separate bounded model consent.
+The real D4 batch passed its after-send comparison and browser human event
+review; later recipient conduct remains outside observed coverage.
+The legacy fixed-route page remains separate.
+
+**D1-D6 declaration workflow acceptance is complete.** Recheck the saved real
+normal/risk/missing-input results, corrected-version approval, actual delivery,
+automatic comparison, human resolution and historical SDK usage without
+another model request or delivery:
+
+```sh
+python3 contest/declaration_acceptance_test.py --check
+```
+
+Run that command from the repository root against the existing local demo.
+It requires the provisioned local API and admin credential file, and is
+intentionally fail-closed if the walkthrough evidence is absent or changed.
+See the [browser walkthrough and negative-case matrix](./DECLARATION-WORKFLOW-PLAN.md#d6-unified-end-to-end-acceptance).
+This completes the bounded application workflow, not arbitrary recipient or
+pipeline support; contest release preparation remains separate.
+The **[Productions workspace](http://localhost:5173/pipelines)** now additionally
+discovers active local IRIS Productions and lets a user explicitly enroll each
+as an independent observed object. It provides per-Production operational
+events, review notes, pause/resume and linked existing business-risk history.
+Generic observation defaults to metadata and makes coverage gaps explicit;
+M2 additionally supports separately authorized local inspection of registered
+FHIR/JSON message properties. Neither path infers HIPAA findings by itself.
+See [setup, source attribution, API and actual two-Production acceptance](./MONITORING.md#managed-active-productions).
+Reusable business-risk monitoring for newly added pipelines is a separate
+M1-M5 extension, not a capability implied by operational enrollment.
+**Production is the only enrollment unit**: users discover running Productions
+and choose which to manage, without registering individual business flows.
+The earlier M1 manual-flow registry is retained only as optional versioned
+review context; it must not filter or gate collection. M2 now records actual
+message edges, session-linked immutable observations and consented local
+structured-property facts without per-route registration. An independent
+three-route synthetic Production passed real five-batch evidence acceptance.
+M3 now adds separately funded, Production-scoped sampling and two-phase AI Hub
+review with normative sources, validated citations, durable request budgets and
+explicit information gaps/failures. Three saved A/B/C observations completed
+real review without manual contexts or new business sends: six requests,
+68,373 reported tokens and eleven verified citations. All correctly requested
+missing business context rather than claiming a violation or compliance.
+That acceptance grant is revoked. Saved results also appear in the existing
+Production risk feed. M4 now exposes actual message edges, session-filtered
+evidence, capture/review coverage, exact-source review details and independent
+inspection/model authorization controls in the Production workspace. Optional
+semantic context remains enrichment, never a flow-enrollment prerequisite.
+No new model budget or business delivery was used for M4 verification.
+M5's technical/local-rule test passed on a separate registered synthetic-intake adapter: four
+actual A/B/C/D intakes, automatic discovery of D's first activity, two scoped
+no-deviation results, one explicit local minimization risk and one
+missing-business-information result. Message/session/configuration and SQL
+receipt hashes bind the evidence; no manual flow context is required.
+The four real reviews used eight requests / 98,219 reported tokens / eleven
+validated citations, and the model grant is revoked. This validates the
+supported intake contract only. **M5's scoped demo acceptance is now complete,
+after an explicitly recorded input-mapping repair**, not a claim of
+real-world compliance certification.
+It is not evidence of reliable HIPAA assessment merely because local rules and
+exact quotations were checked. A separate prospective eight-case Privacy Rule
+condition benchmark now passes all predeclared automated checks (16 requests,
+158,476 reported tokens, 31 exact citations), including treatment exceptions,
+psychotherapy-note authorization, paid marketing, own quality operations and
+Safe Harbor ZIP thresholds. It tests stipulated facts, uses an assistant-authored
+oracle without independent expert validation, and does not establish real-world
+fact coverage. Real-system integration is **not a prerequisite for this demo**:
+the Production approval UI now accepts session-scoped user-confirmed recipient,
+purpose, permission/authorization, safeguards and exceptions. These are usable
+simulation premises, frozen with server-side approver/time and displayed
+separately from collected message evidence; explicit unknowns remain unknown.
+No per-flow enrollment or real hospital/contract-system connection is needed.
+Live Production acceptance now covers treatment disclosure (no scoped signal),
+paid marketing with affirmatively absent authorization (risk), and unknown
+recipient/permission (information required). The first pass was **2/3**:
+treatment correctly asked how technical hosts and message data mapped to its
+business scenario. Two explicit form inputs now capture that mapping and data
+scope. One separately authorized new treatment message passed the unchanged
+oracle; the original unresolved report remains preserved. Total including
+that first attempt: **4 synthetic sends, 8 requests, 116,871 reported tokens,
+15 exact citations**. All four model grants are revoked. Read both original
+and follow-up reports without inference using:
+
+```sh
+python3 contest/production_premises_test.py --check-complete
+```
+
+See the
+[implementation status and contract boundaries](./MONITORING.md#business-flow-risk-monitoring-m1-m5).
+The contest control plane, AI reviewers, governance and audit records live in
+the dedicated **TRIAGE** namespace, backed by its own database. Independently
+managed business demos retain their own namespaces; the isolated M2 and M5
+acceptance Productions use **OBSERVATION** and **M5OBSERVATION**, respectively.
 
 The installer creates this namespace and calls
 `%EnsembleMgr.EnableNamespace("TRIAGE")`. Interoperability configures its own
@@ -59,6 +183,16 @@ for password-authenticated IRIS connections over the private Docker network.
 The Portal login page is verified to return HTTP 200; use your IRIS administrator
 credentials to sign in and select TRIAGE. This service account is not a Portal
 administrator. Do not treat container health alone as Portal verification.
+For an optional **local-demo-only** administrator, run
+`python3 contest/prepare.py --portal-admin` and enter/confirm a password.
+The ignored mode-600 `contest/data/portal-admin-password` file is read at startup
+to configure `superuser` with `%All`, an enabled account, no password expiry
+and no first-login password change. Without that file the installer leaves
+administrator accounts unchanged. The local password is reapplied on each
+startup while the file exists; remove the file and rotate the account password
+to stop this behavior. This does not change the separate Gateway service user,
+the instance-wide password policy, or other users. Never use a weak/shared
+password or non-expiring administrator credentials on a public/production instance.
 Gateway administration paths are denied by the supplied Apache configuration.
 Neither the mock nor IRIS Superserver is exposed on host ports.
 
@@ -75,6 +209,12 @@ docker compose -p iris-triage -f contest/compose.yaml --profile mock down
 ```
 
 ## Workflow and evidence
+
+For the current SQL/FHIR aggregation and internal quality-improvement sidecar,
+see [Internal hospital route demo](./ROUTE-DEMO.md). It uses explicit synthetic
+organization policy, exact project approval and real delivery observations,
+with separate destructive demo replacement and paid-inference commands.
+The workflow below describes the original message-triage slice.
 
 1. `Contest.Setup.Submit` sends an `Ens.Request` through the test Business
    Service into `Contest.Process`.

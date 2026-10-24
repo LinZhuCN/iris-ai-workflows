@@ -1,0 +1,45 @@
+{
+  "version": "multi-org-v1",
+  "namespaces": {
+    "source": "FHIRDEMO",
+    "distribution": "DEMODISTRIBUTION",
+    "quality": "DEMOQUALITY",
+    "research": "DEMORESEARCH",
+    "clinic": "DEMOCLINIC",
+    "control": "TRIAGE"
+  },
+  "api_prefix": "/api/monitor/v1",
+  "routes": {
+    "GET /organizations": "items: confirmed profile records; presets: four editable profile objects; can_manage: boolean",
+    "POST /organizations": "body: profile, expected_revision, confirmed=true; returns confirmed record",
+    "GET /distribution": "ready, readiness[], runs[], can_manage, model_request_limit=6",
+    "POST /distribution/seed": "body: confirmed=true; returns source resource IDs",
+    "POST /distribution/run": "body: run_id, variant=identifier-leak|corrected, confirmed=true; returns run",
+    "GET /distribution/runs/:id": "returns run including branches and optional audit records",
+    "POST /distribution/audit": "body: run_id, acknowledge_cost=true, acknowledge_synthetic=true; bounded to 3 reviews and 6 model requests for this run; returns run"
+  },
+  "profile": {
+    "id": "hospital|quality|research|clinic",
+    "name": "string",
+    "partner": "string",
+    "type": "string",
+    "parent_id": "string",
+    "responsibilities": "string",
+    "purpose": "string",
+    "relationship": "same_covered_entity|another_provider|external",
+    "allowed_fields": ["string"],
+    "prohibited_fields": ["string"],
+    "requirements": "string"
+  },
+  "profile_record": "id, revision, profile, confirmed_by, confirmed_at, hash",
+  "run": "id, variant, state, created_at, profiles, source_pins, branches[], error (optional)",
+  "branch": "id=quality|research|clinic, organization, protocol=SQL|REST|HL7, namespace, state, message_id, session_id, fields[], payload_hash, receipt (optional), policy_mismatches[], audit (optional), error (optional)",
+  "audit": "state, assessment, explanation, next_step, report_id, model_requests, raw",
+  "readiness_item": "name, ready, detail",
+  "operating_boundary": "post-send advisory only; presets are drafts; no automatic send or model call; synthetic local targets only",
+  "authorized_acceptance_budget": {
+    "max_reviews": 3,
+    "max_model_requests": 6,
+    "automatic_paid_retries": 0
+  }
+}

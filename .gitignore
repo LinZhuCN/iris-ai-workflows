@@ -28,3 +28,9 @@ WORKLOG.md
 .trash/
 docs/
 articles/
+
+# Frontend dependencies, builds and browser test output
+/web/node_modules/
+/web/dist/
+/web/test-results/
+/web/playwright-report/

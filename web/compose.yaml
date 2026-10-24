@@ -1,0 +1,12 @@
+name: iris-workflows-ui
+services:
+  ui:
+    image: node:22-alpine
+    working_dir: /app
+    command: ["npm", "run", "dev"]
+    environment:
+      VITE_USE_POLLING: "true"
+    ports:
+      - "127.0.0.1:5173:5173"
+    volumes:
+      - ./:/app

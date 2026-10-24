@@ -4,6 +4,7 @@ services:
     command: ["-a", "/contest/setup.sh"]
     environment:
       ISC_DATA_DIRECTORY: /dur/irissys
+      FASTEMBED_CACHE_DIR: /dur/models/fastembed
       TRIAGE_PROVIDER_URL: ${TRIAGE_PROVIDER_URL:-http://mock:8088/v1}
       TRIAGE_MODEL: ${TRIAGE_MODEL:-gpt-4o-mini}
       TRIAGE_MODE: ${TRIAGE_MODE:-mock}

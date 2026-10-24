@@ -35,6 +35,9 @@ benchmark has been performed.
 - [briefs/](./briefs/): LLM-authored orientation and synthetic organization policy.
 - [evaluation-cases.json](./evaluation-cases.json): synthetic evaluation
   specifications, not retrieval content or completed evaluation results.
+  Ten business cases and two controls now include model-visible fact packets,
+  separate author-authored expected outcomes, exact dated-source anchors and
+  human-review rubrics. See [offline validation and limitations](../contest/MONITORING.md#business-context-hipaa-risk-benchmark).
 - [supplemental-sources.json](./supplemental-sources.json): pinned official NIST
   source URLs, checksums and inclusion reasons.
 
@@ -77,8 +80,8 @@ python3 contest/knowledge.py export --scope historical \
 ```
 
 The scope export implements filtering of input records, not an AI Hub search
-endpoint. A future ingestion/retrieval layer must enforce the same separation
-and preserve metadata and citations. Each review should retrieve only relevant
+endpoint. The separate [local Knowledge API](../contest/KNOWLEDGE.md) enforces
+the default scopes and preserves metadata and citations. Each review should retrieve only relevant
 chunks, not send 23 MB in a prompt.
 
 ## Release and local profiles
@@ -91,9 +94,18 @@ and a profile-specific index key in ignored local state. Missing sources and
 changed digests are errors, not silent fallbacks.
 
 Selection and export do **not** build vector indices, invoke embedding models
-or make the current triage Agent use this knowledge. AI Hub import, index
-measurements and retrieval/Agent evaluation remain the next implementation
-stage. `index_status=not_imported` is intentional. No production behavior changed.
+or make the current triage Agent use this knowledge. The separate local AI Hub
+RAG implementation has indexed 715 default-scope records into 1,785 chunks
+(384 dimensions), with offline verification and authenticated retrieval.
+`index_status=not_imported` in the selection CLI describes preparation state,
+not the separate runtime API's readiness. The privacy factory separately pins
+Agent knowledge and has run flag-classification mechanism tests; the
+business-context specifications have now run through a separate read-only
+AI Hub runtime reusing the pinned model/index, without changing the source Agent.
+The first batch did not pass acceptance: 9/12 valid output contracts, 3/12
+aligned with all author-oracle machine checks (not legal accuracy).
+Expert applicability review remains pending. No Production behavior is changed by corpus selection
+or the offline benchmark.
 
 Rebuilding requires the original dated local archive and macOS PDFKit:
 

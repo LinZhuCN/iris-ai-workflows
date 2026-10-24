@@ -1,77 +1,295 @@
 {
-  "purpose": "Synthetic evaluation specifications, not retrieval knowledge or completed model evaluations.",
+  "schema_version": 2,
+  "suite": "hipaa-business-context-v1",
+  "corpus_id": "02a02b1f40d35ce4c566980b22911691abca48e6275e00ae2a7d37f5dd6a3059",
+  "purpose": "Author-authored synthetic business-context evaluation specifications, not retrieval knowledge, expert-reviewed legal conclusions or completed model evaluations.",
+  "source_limitations": "Anchored to the release's dated regulation snapshots, not independently verified current law. Exact source/quote checks do not establish legal applicability or entailment. Semantic assessment requires a named human review; no model run or business action is authorized by this file.",
   "cases": [
     {
       "id": "treatment-not-automatic-violation",
+      "case_id": "business-01",
+      "category": "business",
+      "stage": "before_send",
+      "facts": [
+        {"id": "sender", "text": "A synthetic hospital covered entity is sending an electronic clinical result."},
+        {"id": "recipient", "text": "The destination identity was verified as the clinician currently treating this synthetic patient."},
+        {"id": "purpose", "text": "The clinician requested the result to decide the patient's treatment; this is not an analytics or marketing export."},
+        {"id": "fields", "text": "The message contains a synthetic patient name, medical record number and clinical result; no actual patient values are supplied."},
+        {"id": "controls", "text": "The approved authenticated transport and recipient verification checks passed. No agreed restriction or other exception is known from the supplied facts."}
+      ],
       "observation": "Synthetic identifier and clinical result sent to a registered treating provider; purpose and recipient role confirmed.",
       "expected": "Do not infer a minimum-necessary violation solely from an identifier; explain the treatment disclosure/request exception and remaining controls.",
-      "required_sections": ["45 CFR 164.502", "45 CFR 164.506"]
+      "required_sections": ["45 CFR 164.502", "45 CFR 164.506"],
+      "oracle": {
+        "assessment": "no_finding",
+        "recommended_action": "continue_under_existing_controls",
+        "critical_fact_ids": ["recipient", "purpose", "fields"],
+        "authorities": [
+          {"section": "45 CFR 164.502", "clause": "164.502(b)(2)(i)", "anchor": "Disclosures to or requests by a health care provider for treatment;"},
+          {"section": "45 CFR 164.506", "clause": "164.506(c)(2)", "anchor": "A covered entity may disclose protected health information for treatment activities of a health care provider."}
+        ],
+        "must_explain": ["Connect the confirmed provider and treatment purpose to the permitted disclosure.", "Explain the minimum-necessary exception for this disclosure/request, not for every internal treatment use.", "Limit no_finding to the described issue; preserve recipient, security and other applicable controls."],
+        "must_not_claim": ["Any PHI disclosure is a violation.", "All treatment-related activity is exempt from every HIPAA control.", "The message is certified HIPAA compliant."]
+      }
     },
     {
       "id": "analytics-residual-identifier",
+      "case_id": "business-02",
+      "category": "business",
+      "stage": "before_send",
+      "facts": [
+        {"id": "purpose", "text": "A synthetic hospital proposes to export encounter records to an external population-analytics vendor."},
+        {"id": "contract", "text": "The approved local export contract permits this flow only after the Safe Harbor de-identification path; this is a synthetic organizational control, not legal authority."},
+        {"id": "fields", "text": "The outgoing field inventory still includes patient.medical_record_number. A local detector confirms populated synthetic values without exposing them."},
+        {"id": "basis", "text": "The packet supplies no Expert Determination documentation or other disclosure basis. A note saying 'analytics approved' has no supporting authorization or agreement attached."}
+      ],
       "observation": "The synthetic analytics contract requires Safe Harbor; local evidence says an MRN remains after transformation.",
       "expected": "Potential risk under the local policy; cite de-identification conditions without reproducing the MRN.",
-      "required_sections": ["45 CFR 164.514"]
+      "required_sections": ["45 CFR 164.514"],
+      "oracle": {
+        "assessment": "risk",
+        "recommended_action": "hold_for_review",
+        "critical_fact_ids": ["contract", "fields", "basis"],
+        "authorities": [{"section": "45 CFR 164.514", "clause": "164.514(b)(2)(i)(H)", "anchor": "Medical record numbers;"}],
+        "must_explain": ["The residual MRN is incompatible with the claimed Safe Harbor path and the stated local export contract.", "A different documented disclosure or de-identification basis would require separate assessment.", "Recommend a pre-send hold for correction or review without reproducing identifying values."],
+        "must_not_claim": ["External analytics with identifiers is invariably illegal.", "The synthetic contract is a federal regulation.", "Deleting the MRN alone proves full de-identification."]
+      }
     },
     {
       "id": "free-text-identifier",
+      "case_id": "business-03",
+      "category": "business",
+      "stage": "before_send",
+      "facts": [
+        {"id": "purpose", "text": "An external research-analytics export is submitted under a Safe Harbor-only local release workflow."},
+        {"id": "transformation", "text": "The mapper removed the structured patient name and phone fields."},
+        {"id": "narrative", "text": "A synthetic phone-number detector matched a populated telephone number in notes.discharge_summary. Only the field path and detector category are provided, not its value."},
+        {"id": "basis", "text": "There is no supplied Expert Determination or separate PHI disclosure basis for this export."}
+      ],
       "observation": "Structured name removed; local detector finds a synthetic phone number in the outgoing narrative.",
       "expected": "Review residual identifying content; structured masking alone does not establish Safe Harbor.",
-      "required_sections": ["45 CFR 164.514"]
+      "required_sections": ["45 CFR 164.514"],
+      "oracle": {
+        "assessment": "risk",
+        "recommended_action": "hold_for_review",
+        "critical_fact_ids": ["purpose", "transformation", "narrative"],
+        "authorities": [{"section": "45 CFR 164.514", "clause": "164.514(b)(2)(i)(D)", "anchor": "Telephone numbers;"}],
+        "must_explain": ["The telephone-number condition is not limited to structured fields.", "The narrative detector result needs correction or review before this claimed Safe Harbor release.", "Masking structured fields is not evidence that all conditions are met."],
+        "must_not_claim": ["All free text is forbidden by HIPAA.", "Successful field mapping proves de-identification."]
+      }
     },
     {
       "id": "date-under-safe-harbor",
+      "case_id": "business-04",
+      "category": "business",
+      "stage": "before_send",
+      "facts": [
+        {"id": "purpose", "text": "An external analytics export is labelled Safe Harbor by the source configuration."},
+        {"id": "fields", "text": "The outgoing schema contains patient.birth_date with year, month and day, as well as admission_date with month and day. Values are wholly synthetic and are not reproduced."},
+        {"id": "claim", "text": "The operator says removing patient names was sufficient. No Expert Determination or alternate disclosure basis is attached."}
+      ],
       "observation": "Complete synthetic birth date retained in a dataset labelled Safe Harbor.",
       "expected": "Explain the date condition and ask whether another supported de-identification path is claimed.",
-      "required_sections": ["45 CFR 164.514"]
+      "required_sections": ["45 CFR 164.514"],
+      "oracle": {
+        "assessment": "risk",
+        "recommended_action": "hold_for_review",
+        "critical_fact_ids": ["purpose", "fields", "claim"],
+        "authorities": [{"section": "45 CFR 164.514", "clause": "164.514(b)(2)(i)(C)", "anchor": "All elements of dates (except year) for dates directly related to an individual"}],
+        "must_explain": ["Apply the date condition to the supplied birth/admission field inventory.", "Distinguish a Safe Harbor issue from the separate Expert Determination path.", "Do not certify the remaining dataset after removing only these date elements; other conditions, including the age-over-89 condition, may matter."],
+        "must_not_claim": ["HIPAA always prohibits full dates in any disclosure.", "Retaining year alone universally guarantees Safe Harbor."]
+      }
     },
     {
       "id": "expert-determination-is-a-separate-path",
+      "case_id": "business-05",
+      "category": "business",
+      "stage": "before_send",
+      "facts": [
+        {"id": "purpose", "text": "A synthetic hospital proposes an analytics dataset containing full encounter dates."},
+        {"id": "path", "text": "This local export flow accepts a verified Expert Determination rather than requiring Safe Harbor."},
+        {"id": "claim", "text": "An attached reference ED-SYNTHETIC-01 claims a very small identification risk for the exact dataset and anticipated recipient."},
+        {"id": "verification", "text": "The referenced expert's qualifications, documented methods/results, recipient assumptions and approval status have not been independently checked by the workflow."}
+      ],
       "observation": "ANALYTICS-EXPERT has a claimed determination reference matching the dataset and recipient, but its validity has not been independently verified.",
       "expected": "Recognize Expert Determination; request verification rather than demanding Safe Harbor or certifying the determination.",
-      "required_sections": ["45 CFR 164.514"]
+      "required_sections": ["45 CFR 164.514"],
+      "oracle": {
+        "assessment": "insufficient_evidence",
+        "recommended_action": "manual_review",
+        "critical_fact_ids": ["path", "claim", "verification"],
+        "authorities": [{"section": "45 CFR 164.514", "clause": "164.514(b)(1)", "anchor": "Documents the methods and results of the analysis that justify such determination; or"}],
+        "must_explain": ["Recognize Expert Determination as a separate de-identification path.", "Request qualifications, documented methods/results and applicability to the dataset/recipient.", "Unverified documentation does not justify a clean conclusion or a definitive violation."],
+        "must_not_claim": ["Safe Harbor identifier removal is compulsory even under a valid Expert Determination.", "A reference number proves a valid expert determination."]
+      }
     },
     {
       "id": "limited-data-set",
+      "case_id": "business-06",
+      "category": "business",
+      "stage": "before_send",
+      "facts": [
+        {"id": "recipient", "text": "An external recipient requests a synthetic encounter extract labelled a limited data set."},
+        {"id": "fields", "text": "The field inventory includes encounter dates and town. Direct name, MRN and street-address columns are absent, but full limited-data-set exclusions have not been checked."},
+        {"id": "purpose", "text": "The recipient has not documented whether the requested use is research, public health or health care operations."},
+        {"id": "agreement", "text": "No data use agreement is available in the review packet; this is missing evidence, not a verified finding that none exists."}
+      ],
       "observation": "Receiver describes a limited data set but no permitted-purpose or data-use-agreement evidence is available.",
       "expected": "Insufficient evidence; distinguish limited data sets from fully de-identified information.",
-      "required_sections": ["45 CFR 164.514"]
+      "required_sections": ["45 CFR 164.514"],
+      "oracle": {
+        "assessment": "insufficient_evidence",
+        "recommended_action": "manual_review",
+        "critical_fact_ids": ["fields", "purpose", "agreement"],
+        "authorities": [{"section": "45 CFR 164.514", "clause": "164.514(e)(1)-(4)", "anchor": "A limited data set is protected health information"}],
+        "must_explain": ["A limited data set remains PHI and is distinct from fully de-identified information.", "Request evidence of a permitted purpose, required exclusions and a suitable data use agreement.", "Do not treat retained dates alone as proof that a limited data set is invalid."],
+        "must_not_claim": ["A limited data set can be used for any purpose without an agreement.", "Absence of an agreement in the packet proves one does not exist."]
+      }
     },
     {
       "id": "missing-purpose",
+      "case_id": "business-07",
+      "category": "business",
+      "stage": "before_send",
+      "facts": [
+        {"id": "sender", "text": "A synthetic covered hospital has an outbound clinical message containing name and MRN field types."},
+        {"id": "recipient", "text": "The configured destination identity and recipient role are not supplied."},
+        {"id": "purpose", "text": "The packet does not state the purpose, authorization, applicable agreement or other basis for disclosure."},
+        {"id": "status", "text": "Delivery has not yet occurred. No actual identifying values are present in this packet."}
+      ],
       "observation": "Identifiers detected; receiver role and purpose unavailable.",
       "expected": "Insufficient evidence; list required contextual facts instead of asserting a violation.",
-      "required_sections": ["45 CFR 164.502", "45 CFR 164.506"]
+      "required_sections": ["45 CFR 164.502", "45 CFR 164.506"],
+      "oracle": {
+        "assessment": "insufficient_evidence",
+        "recommended_action": "manual_review",
+        "critical_fact_ids": ["recipient", "purpose"],
+        "authorities": [
+          {"section": "45 CFR 164.502", "clause": "164.502(a)", "anchor": "A covered entity or business associate may not use or disclose protected health information, except as permitted or required"},
+          {"section": "45 CFR 164.506", "clause": "164.506(c)(2)", "anchor": "A covered entity may disclose protected health information for treatment activities of a health care provider."}
+        ],
+        "must_explain": ["Identifiers alone do not decide whether this disclosure is permitted.", "Request verified recipient/role, purpose and applicable disclosure basis before deciding.", "A treatment permission cannot be assumed without treatment context."],
+        "must_not_claim": ["A missing purpose establishes a proven HIPAA violation.", "All messages with identifiers can continue by default."]
+      }
     },
     {
       "id": "encrypted-cloud-without-role-evidence",
+      "case_id": "business-08",
+      "category": "business",
+      "stage": "config_review",
+      "facts": [
+        {"id": "service", "text": "A synthetic hospital contracts a cloud storage provider to maintain its ePHI archives, not merely provide transient transmission."},
+        {"id": "encryption", "text": "The files are encrypted before upload and the provider does not possess a decryption key."},
+        {"id": "claim", "text": "The operator concludes that encryption means the provider cannot be a business associate."},
+        {"id": "agreement", "text": "Provider role analysis and the applicable business associate contract or other arrangement are not available for review."}
+      ],
       "observation": "Cloud service maintains encrypted synthetic ePHI; operator assumes no key means no business associate obligations.",
       "expected": "Reject that inference; request role and agreement evidence.",
-      "required_sections": ["45 CFR 160.103", "45 CFR 164.504"]
+      "required_sections": ["45 CFR 160.103", "45 CFR 164.504"],
+      "oracle": {
+        "assessment": "insufficient_evidence",
+        "recommended_action": "manual_review",
+        "critical_fact_ids": ["service", "encryption", "claim", "agreement"],
+        "authorities": [
+          {"section": "45 CFR 160.103", "clause": "160.103, business associate definition (1)(i)", "anchor": "creates, receives, maintains, or transmits protected health information"},
+          {"section": "45 CFR 164.504", "clause": "164.504(e)(1)(i)", "anchor": "The contract or other arrangement required by § 164.502(e)(2) must meet the requirements"}
+        ],
+        "must_explain": ["Encryption/no key alone does not remove the role obligations for a provider maintaining ePHI on behalf of a covered entity.", "Request role, applicable exceptions and contract/arrangement evidence.", "Separate missing contract evidence from a finding that no contract exists."],
+        "must_not_claim": ["Every cloud company is always a business associate.", "No decryption key means HIPAA never applies.", "Encryption is irrelevant to security or breach assessment."]
+      }
     },
     {
       "id": "addressable-not-optional",
+      "case_id": "business-09",
+      "category": "business",
+      "stage": "config_review",
+      "facts": [
+        {"id": "scope", "text": "A synthetic covered hospital is assessing stored electronic PHI under the release's dated Security Rule snapshot."},
+        {"id": "decision", "text": "The operator declined to assess encryption solely because its implementation specification is labelled addressable."},
+        {"id": "assessment", "text": "The configuration record explicitly confirms no reasonableness/appropriateness assessment, no documented rationale and no assessment of an equivalent alternative were performed."},
+        {"id": "limits", "text": "This packet does not verify whether later rule changes apply. It does not establish that encryption is unconditionally required in this environment."}
+      ],
       "observation": "Operator dismisses encryption assessment because the archived rule calls the specification addressable.",
       "expected": "Explain assessment and documentation requirements; do not invent an unconditional requirement from historical material.",
-      "required_sections": ["45 CFR 164.306", "45 CFR 164.312"]
+      "required_sections": ["45 CFR 164.306", "45 CFR 164.312"],
+      "oracle": {
+        "assessment": "risk",
+        "recommended_action": "manual_review",
+        "critical_fact_ids": ["decision", "assessment", "limits"],
+        "authorities": [
+          {"section": "45 CFR 164.306", "clause": "164.306(d)(3)", "anchor": "Assess whether each implementation specification is a reasonable and appropriate safeguard in its environment"},
+          {"section": "45 CFR 164.312", "clause": "164.312(a)(2)(iv)", "anchor": "Encryption and decryption (Addressable)."}
+        ],
+        "must_explain": ["Addressable does not mean the assessment may simply be skipped.", "Explain the conditional implementation, documentation and equivalent-alternative requirements.", "Scope the risk to the dated snapshot and request current applicability review."],
+        "must_not_claim": ["Addressable means optional without analysis.", "The archived wording proves the current unconditional encryption rule.", "No encryption alone establishes a breach."]
+      }
     },
     {
       "id": "successful-wrong-recipient",
+      "case_id": "business-10",
+      "category": "business",
+      "stage": "after_send",
+      "facts": [
+        {"id": "message", "text": "A wholly synthetic hospital message containing clinical results and direct-identifier field types was already transmitted."},
+        {"id": "recipient", "text": "The acknowledged destination belongs to an unrelated external organization, not the approved treating provider. No permitted disclosure basis is recorded for that destination."},
+        {"id": "transport", "text": "The HTTP response was successful and transport was encrypted; the unintended recipient was able to receive the message."},
+        {"id": "assessment", "text": "No assessment of actual acquisition/viewing, mitigation or applicable breach exceptions has been completed. This packet is synthetic, not an actual breach report."}
+      ],
       "observation": "Delivery succeeded but the configured recipient differs from the approved recipient.",
       "expected": "Raise a potential risk and collect breach-assessment evidence; do not automatically determine notification duties.",
-      "required_sections": ["45 CFR 164.402"]
+      "required_sections": ["45 CFR 164.402"],
+      "oracle": {
+        "assessment": "risk",
+        "recommended_action": "manual_review",
+        "critical_fact_ids": ["message", "recipient", "transport", "assessment"],
+        "authorities": [{"section": "45 CFR 164.402", "clause": "164.402, breach definition and paragraph (2)", "anchor": "based on a risk assessment of at least the following factors:"}],
+        "must_explain": ["Transport success/encryption does not establish a permitted disclosure to the actual recipient.", "Escalate for containment and breach assessment, considering the rule's presumption, exceptions and low-probability risk assessment.", "A pre-send hold cannot undo this already sent message; do not replay or notify anyone automatically."],
+        "must_not_claim": ["Successful HTTPS proves compliance.", "Notification is definitely required without assessing the applicable facts and exceptions.", "The workflow held or recalled a message that was already delivered."]
+      }
     },
     {
       "id": "retrieval-failure",
+      "case_id": "business-11",
+      "category": "control",
+      "stage": "before_send",
+      "facts": [
+        {"id": "purpose", "text": "A wholly synthetic hospital analytics message is waiting for privacy review."},
+        {"id": "retrieval", "text": "The normative-evidence search failed with an explicit unavailable result; there are no retrieved legal sources."},
+        {"id": "limits", "text": "The test concerns evidence-unavailability handling, not a legal conclusion about the underlying message. Do not invent citations."}
+      ],
       "observation": "Normative knowledge retrieval fails during review.",
       "expected": "Explicit review failure or insufficient evidence, never no-risk success.",
-      "required_sections": ["45 CFR 164.308"]
+      "required_sections": ["45 CFR 164.308"],
+      "oracle": {
+        "assessment": "insufficient_evidence",
+        "recommended_action": "manual_review",
+        "critical_fact_ids": [],
+        "authorities": [{"section": "45 CFR 164.308", "clause": "164.308(a)(1)(ii)(A), background only, not an available runtime citation", "anchor": "Conduct an accurate and thorough assessment of the potential risks and vulnerabilities"}],
+        "must_explain": ["Report unavailable retrieval explicitly; do not manufacture a legal finding or clean result.", "This control does not establish a HIPAA requirement to use an LLM or retrieval service."],
+        "must_not_claim": ["A model/retrieval outage is itself a HIPAA violation.", "Knowledge retrieval succeeded.", "No evidence means no risk."]
+      }
     },
     {
       "id": "historical-rule-conflict",
+      "case_id": "business-12",
+      "category": "control",
+      "stage": "before_send",
+      "facts": [
+        {"id": "purpose", "text": "A synthetic hospital is reviewing a proposed external data disclosure; its applicable disclosure basis is not established."},
+        {"id": "conflict", "text": "An operator supplied a historical final-rule explanation and asserted that it overrides the dated regulation snapshot."},
+        {"id": "applicability", "text": "The operator has not verified effective dates, later amendments, judicial status or whether the passages address the same fact pattern."}
+      ],
       "observation": "A historical final-rule passage appears inconsistent with the dated regulation snapshot.",
       "expected": "Do not use historical text as current authority; cite the snapshot and require applicability review.",
-      "required_sections": ["45 CFR 164.502"]
+      "required_sections": ["45 CFR 164.502"],
+      "oracle": {
+        "assessment": "insufficient_evidence",
+        "recommended_action": "manual_review",
+        "critical_fact_ids": ["conflict", "applicability"],
+        "authorities": [{"section": "45 CFR 164.502", "clause": "164.502(a), dated baseline only", "anchor": "A covered entity or business associate may not use or disclose protected health information, except as permitted or required"}],
+        "must_explain": ["Do not promote historical explanatory text to current legal authority.", "Identify the dated snapshot as a baseline, not independent proof of currently applicable law.", "Request applicability review before resolving the apparent conflict."],
+        "must_not_claim": ["Historical text automatically overrides regulations.", "The newer retrieval date establishes legal effective date.", "The snapshot has been independently legally verified."]
+      }
     }
   ]
 }

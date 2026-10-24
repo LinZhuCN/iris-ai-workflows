@@ -1,32 +1,32 @@
-# IRIS AI Hub Interoperability Workflows
+# Installation and demo entry points
 
-[Main README](./README.md) · [Chinese README](./README.zh-CN.md)
+[Project overview](./README.md) · [中文说明](./README.zh-CN.md)
 
-A contest-focused message triage application: an **IRIS AI Hub Agent makes a
-bounded runtime decision inside an Interoperability workflow**, while IRIS
-validates policy, executes the action and records the outcome.
+This project monitors inter-organization data exchanges for potential privacy
+and compliance risks without changing the observed Production's business flow.
+IRIS AI Hub assists post-send review; findings support human investigation,
+not automatic legal certification.
 
-```text
-Synthetic message -> deterministic facts -> AI Hub Agent + read-only ToolSet
-                                                     |
-                                               BP policy gate
-                                                     |
-                               BO -> deliver / quarantine / human review
-                                                     |
-                                        persistent destination and audit
-```
+There are two setup levels: a small mock triage workflow and the extended
+monitoring demonstration. Starting the first does not provision the second.
 
-## Quick start
+## Platform prerequisites
 
-Requirements: Docker Compose 2.24.4+, Python 3, an authorized AI Hub EAP image
-and your own valid InterSystems license. Tested with ARM64 IRIS for Health
-`2026.3.0AI.154.0`. EAP is prerelease software, not a production deployment.
-The ordinary Community image is not a substitute for this AI Hub build.
+- Docker Compose 2.24.4+ and Python 3.
+- Authorized AI Hub EAP image and appropriate license, obtained separately.
+- Tested on ARM64 IRIS for Health `2026.3.0AI.154.0`; the ordinary Community
+  image lacks the required AI Hub runtime.
+- Node 22.12+ for host frontend use, or the
+  [Docker-based UI setup](./web/README.md#run-without-host-node).
 
-Put your license in `iris/license/iris.key`, or set `IRIS_LICENSE_PATH` to an
-absolute local file path. No license or EAP image is distributed here.
+The contest announcement currently specifies AI Hub Community build 154.
+This EAP environment is not production-ready. Do not redistribute its image
+or license based on this repository's open-source license.
 
-From the repository root:
+## Mock triage quick start
+
+Put your license at `iris/license/iris.key`, or set `IRIS_LICENSE_PATH` to
+its absolute local path. From the repository root:
 
 ```sh
 python3 contest/prepare.py
@@ -34,107 +34,111 @@ docker compose --profile mock up -d --wait
 python3 contest/test.py --restart
 ```
 
-This uses a synthetic local mock provider but the real IRIS AI Hub SDK, BP,
-ToolSet and BO. Open <http://127.0.0.1:52777/csp/sys/UtilHome.csp>, sign in
-with your IRIS administrator credentials, and select **TRIAGE**.
-The installer creates a dedicated database and namespace and enables
-Interoperability; application code does not switch to USER or HSLIB.
+The provider is a local synthetic mock; the AI Hub SDK, fact ToolSet, BP policy
+checks, BO and persistent audit are real. The test includes synthetic traffic
+and restart checks. Open <http://127.0.0.1:52777/csp/sys/UtilHome.csp>,
+sign in with your IRIS administrator identity and select **TRIAGE**.
 
-For authorized real inference, populate an ignored root `.env` using
-[.env.example](./.env.example), then:
+The [runtime guide](./contest/README.md) explains image configuration, initial
+credentials, expected behavior and troubleshooting. No patient data is needed.
+
+## Real-model runtime
+
+Populate an ignored root `.env` using [.env.example](./.env.example).
+Configure `LLM_BASE_URL`, `LLM_API_KEY` and `LLM_MODEL` locally:
 
 ```sh
+python3 contest/prepare.py
 docker compose --env-file .env -p iris-triage-real \
   -f contest/compose.yaml -f contest/real.yaml up -d --wait
+```
+
+The separate real instance uses
+<http://127.0.0.1:52779/csp/sys/UtilHome.csp>. Do not print resolved Compose
+configuration containing credentials.
+
+The following is an optional **paid triage test**, not monitoring installation:
+
+```sh
 COMPOSE_PROJECT_NAME=iris-triage-real python3 contest/test.py --real --restart
 ```
 
-The real instance uses separate data and
-<http://127.0.0.1:52779/csp/sys/UtilHome.csp>. Calls may incur provider charges.
-Only synthetic case IDs and boolean facts are sent. Do not print resolved
-Compose configuration containing credentials or use real patient data.
+It sends synthetic cases through the real provider and may incur charges.
+The triage Agent sees restricted case facts, not arbitrary patient records.
 
-See the [full installation and workflow guide](./contest/README.md) and
-[acceptance evidence](./contest-knowledge/Minimal-workflow-acceptance-2026-10-15.md).
+## Extended monitoring demonstration
 
-## What is implemented
+Provision the following before the presentation:
 
-- An actual AI Hub fact-tool loop within an Interoperability Business Process.
-- Three policy-controlled paths with persistent destinations and audit events.
-- Delivery rejection for incomplete or unknown-code messages.
-- Explicit failure handling and duplicate suppression, including after restart.
-- Eight injected mock faults and real `deepseek-flash` three-route verification.
-- Authenticated Web Gateway connectivity, with Gateway management paths denied.
+1. [Knowledge API and offline local embeddings](./contest/KNOWLEDGE.md).
+2. [Monitoring infrastructure and Production observation](./contest/MONITORING.md).
+3. The fixed M5 foundation, published reviewer and source installation described
+   in [M5 prerequisites](./contest/M5-ONBOARDING-DEMO.md#before-presenting).
+4. [Frontend setup and shared authentication](./web/README.md).
 
-The delivery destination is local storage; human review is a persistent queue,
-not yet an operator-resolution UI. Whole-loop token/cost accounting, external
-delivery and production hardening remain future work. The small real-model
-verification is not a general model-quality benchmark.
+The complete clean-machine M5 deployment still needs a release rehearsal.
+Existing local acceptance journals are not distributed bootstrap fixtures.
 
-## Development MCP and Interop Skills
+For host Node, restore and run the UI against the real local runtime:
 
-The workspace integrates official IRIS Agentic Dev v1.5.0 through MCP and
-three Copilot skills adapted from
-[IRIS Interop Skills](https://github.com/intersystems-ib/iris-interop-skills).
-They assist development, TDD and message diagnosis; they do not replace the
-AI Hub Agent inside the runtime workflow. See the
-[development guide](./contest/dev/README.md) for installation, permissions
-and actual MCP compile / UnitTest verification.
+```sh
+cd web
+npm ci --legacy-peer-deps
+PLATFORM_API_TARGET=http://127.0.0.1:52779 npm run dev -- --host 127.0.0.1
+```
 
-## HIPAA knowledge inputs
+Open <http://localhost:5173/demo/m5>. Sign in, enter institution profiles,
+enroll `M5OBSERVATION / Contest.M5.Production`, authorize local inspection,
+send the synthetic research flow, inspect captured evidence and separately
+authorize its bounded audit. Read the result and adjacent **AI log**.
 
-The [knowledge package](./hipaa-demo-knowledge/README.md) contains
-approximately 23 MB of actual UTF-8 knowledge text. It was organized and
-summarized with LLM assistance to reduce the number and size of materials
-needed for contest verification. Five LLM-authored briefs and a synthetic
-organization policy are distinct from retained official evidence excerpts:
-the entire package is **not** LLM-rewritten, and summaries are not official
-legal authority. Historical and unreviewed records are included in the release
-but excluded from default scope-filtered exports. NIST guidance supports
-technical assessment. The former 5–10 MB size target has been retired.
+Enrollment does not change the business BP, authorize payload inspection or
+purchase inference. The reviewer runs in an independent observation worker.
+The [optional three-recipient demo](./contest/MULTI-ORGANIZATION-DEMO.md)
+adds actual SQL, REST and HL7 V2 recipients in isolated local namespaces.
 
-The `demo` profile now distributes the complete prepared text; `full` is a
-local rebuild and original binary sources remain Git-ignored. Development comparisons explicitly
-select `full`; before release, select `demo` and run the release check:
+Keep the HTTP development deployment on localhost. Credentials remain in
+browser memory; a secure public deployment needs additional work.
+
+## Verification and rehearsal
+
+Free corpus checks:
 
 ```sh
 python3 contest/knowledge.py verify --profile demo
-python3 contest/knowledge.py select --profile demo
 python3 contest/knowledge.py release-check
-python3 contest/knowledge.py export --output contest/data/knowledge/default.jsonl
 ```
 
-These are input-preparation commands, not completed AI Hub ingestion or a
-security-review Agent implementation. A real deployment may use a fuller
-approved corpus after legal/source and retrieval-quality review. See the
-package guide for full-profile preparation and selection.
+Frontend checks, inside the environment where dependencies were installed:
 
-## Repository layout
+```sh
+cd web
+npm test
+npm run lint
+npm run build
+```
 
-- [contest/](./contest/): application classes, deployment, Gateway and tests.
-- [contest-knowledge/](./contest-knowledge/): project knowledge and evidence.
-- [hipaa-demo-knowledge/](./hipaa-demo-knowledge/): release knowledge inputs.
-- `hipaa-documents/`: ignored full archive and full local prepared corpus.
-- [iris/license/](./iris/license/): local license convention.
-- `contest/data/`: ignored local databases and generated Gateway credential.
+For an already completed local M5 acceptance:
 
-## Provenance and substantial changes
+```sh
+python3 contest/m5_demo.py --check
+```
 
-Forked from [zlnick/DataPipelineDemo](https://github.com/zlnick/DataPipelineDemo),
-an AI-assisted data integration and pipeline-generation demo.
-This fork adds runtime AI Hub decisions, the dedicated TRIAGE namespace,
-bounded fact access, deterministic policy enforcement, persistent routing and
-auditing, reproducible installation, and mock/real-provider acceptance tests.
+This is read-only and requires its saved journal. It does not create acceptance
+evidence on a fresh clone. `--run` sends a new message and funds model requests;
+`--reset` archives fixed M5 logical state. Read the
+[scope and safeguards](./contest/M5-ONBOARDING-DEMO.md) before either operation.
 
-The inherited frontend/backend, pipeline generator, terminology submodule,
-embedding service and related datasets/tools have been removed from the current
-tree to focus the entry. Their history and attribution remain; no submodule
-initialization is required. No upstream repository is modified.
+## More information
 
-Contest eligibility and acceptance of this EAP build remain subject to the
-organizer's decision.
+- [Project capabilities, measured evidence and limitations](./README.md)
+- [Live demo in Chinese](./contest/M5-ONBOARDING-DEMO.zh-CN.md)
+- [HIPAA corpus provenance](./hipaa-demo-knowledge/README.md)
+- [Historical experiments and retained failures](./contest/MONITORING.md)
+- [Contest article](./contest/CONTEST-ARTICLE.md) and
+  [release checklist](./contest/CONTEST-SUBMISSION.md)
+- [Development MCP and Skills](./contest/dev/README.md), separate from runtime AI
 
-## License
-
-[Apache-2.0](./LICENSE). See [NOTICE](./NOTICE) for upstream attribution.
-InterSystems software, licenses and model credentials are not distributed.
+Forked from [DataPipelineDemo](https://github.com/zlnick/DataPipelineDemo);
+upstream is unchanged. Project code is [Apache-2.0](./LICENSE), with additional
+attributions and material-specific notices in [NOTICE](./NOTICE).

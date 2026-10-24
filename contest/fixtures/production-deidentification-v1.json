@@ -1,0 +1,63 @@
+{
+  "schema": 1,
+  "suite": "production-deidentification-v1",
+  "classification": "Prospective synthetic message-context comparison; not legal certification.",
+  "export_context": {
+    "schema": 1,
+    "synthetic": true,
+    "purpose": "external_statistics",
+    "recipient": "external_analytics",
+    "method": "safe_harbor",
+    "processing_status": "deidentified"
+  },
+  "premises": {
+    "recipient": "Synthetic external statistics team",
+    "relationship": "external",
+    "purpose": "A hospital exports a synthetic statistics dataset to an external analytics team. The export job's intended handling and completion label are carried in the message export_context. Evaluate the observed message, not the label alone.",
+    "permission_basis": "other",
+    "permission_details": "This export relies on the Safe Harbor de-identification path declared in the message. No expert-determination path is claimed. Assess whether the observed output contradicts that declared path, not whether a different legal permission could apply.",
+    "authorization_status": "not_relied_upon",
+    "safeguards": "Only synthetic messages are used. The external statistics team is the intended recipient. No real patient information is included.",
+    "exceptions": "This check concerns consistency of the detected fields and date precision with the declared Safe Harbor path. It does not certify every identifier category, age handling, actual knowledge of re-identification, or overall disclosure permission.",
+    "recipient_mapping": "M5Source and ProcessB are internal transport. ReceiverB represents the stated external statistics team within this simulation.",
+    "data_scope": "The captured message body is the export output for this synthetic statistics task. Both cases have identical task context and business premises; only output fields differ.",
+    "confirmed": true
+  },
+  "cases": [
+    {
+      "id": "identifier-leak",
+      "payload": {
+        "name": "SYNTHETIC-DEMO-NAME",
+        "mrn": "SYNTHETIC-DEMO-MRN",
+        "birthDate": "2001-02-03",
+        "status": "finished"
+      },
+      "oracle": {
+        "assessment": "risk_identified",
+        "status": "risk_signal",
+        "applicability": ["applicable"],
+        "condition_status": ["not_met"],
+        "critical_fact_ids": ["observed_fields", "observed_export_context"],
+        "authorities": [
+          {"section": "45 CFR 164.514", "clause": "164.514(b)(2)(i)(A)", "anchor": "Names"},
+          {"section": "45 CFR 164.514", "clause": "164.514(b)(2)(i)(C)", "anchor": "All elements of dates"},
+          {"section": "45 CFR 164.514", "clause": "164.514(b)(2)(i)(H)", "anchor": "Medical record numbers"}
+        ]
+      }
+    },
+    {
+      "id": "minimized-control",
+      "payload": {"birthDate": "2001", "status": "finished"},
+      "oracle": {
+        "assessment": "no_signal_on_checked_issues",
+        "status": "no_signal_on_checked_issue",
+        "applicability": ["applicable"],
+        "condition_status": ["met"],
+        "critical_fact_ids": ["observed_fields", "observed_export_context"],
+        "authorities": [
+          {"section": "45 CFR 164.514", "clause": "164.514(b)(2)(i)(C)", "anchor": "All elements of dates"}
+        ]
+      }
+    }
+  ]
+}

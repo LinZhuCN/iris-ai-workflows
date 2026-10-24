@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "proposal": "staged-risk-taxonomy-draft-v1",
+  "review_status": "assistant_proposal_requires_external_review",
+  "adoption": "not_adopted",
+  "runtime_version": "staged-risk-v3",
+  "contract_hash": "041bf4feb6b9667e581dd703c9368adb3bb55e223413a5e9e627ca56b4077238",
+  "principle": "Separate affirmative scoped failure, material uncertainty and evidence coverage before selecting one issue status. This is a proposed review convention, not a deterministic natural-language classifier or a legal finding.",
+  "definitions": {
+    "affirmative_failure": "Verified observations contradict a specifically applicable condition, an explicit local prerequisite or an intended routing control. State the actual contradicted condition and supporting facts; do not invent its applicability or infer failure from missing proof.",
+    "material_unknown": "An actual raised question cannot be resolved because a relevant fact, permission, applicable exception, source definition or evidence of scope remains unknown. A verification gap is not by itself affirmative failure.",
+    "coverage_limitation": "Generic legal completeness, date/current-law or unrelated duties not material to the checked conclusion. Record as a scope limit rather than manufacturing a new unknown; a genuinely material source gap remains unresolved.",
+    "disputed_rationale": "An unsupported operator explanation is assessed separately from independently established facts and release bases. It proves neither a failed release path nor a lawful release.",
+    "untrusted_instruction": "A quoted request or malicious-looking note is input data. It does not prove execution, data access or a legally reportable incident; an attempted manipulation may still be a separate operational signal if an applicable criterion and evidence support it."
+  },
+  "proposed_status_convention": [
+    {"when":"An affirmative scoped failure is established with applicable supporting evidence.","status":"risk_signal","unknown_handling":"Retain any independently material unknown in missing_information; risk and unresolved summary may coexist."},
+    {"when":"No affirmative scoped failure is established, but material applicability, permission or verification remains unknown.","status":"unresolved","unknown_handling":"Ask only for minimized evidence needed to resolve that issue; do not interpret missing proof as proof of absence."},
+    {"when":"Supplied facts and applicable evidence resolve the checked conditions without a scoped failure or material unknown.","status":"no_signal_on_checked_issue","unknown_handling":"Limit the conclusion to the checked issue; no certification or automatic release."},
+    {"when":"The topic has no available normative template, or a necessary source gap prevents the actual judgment.","status":"unresolved","unknown_handling":"Preserve the unsupported issue for review. A known operational event can be described without inventing a legally supported risk/no-signal label."}
+  ],
+  "runtime_safeguards": [
+    "No status, citation, missing-information or server-summary rewriting",
+    "No new keyword filters, automatic evidence grading or automatic data requests",
+    "No change to conservative pre-send hold/manual-review policy",
+    "No model execution, business action, legal certification or deployment approval",
+    "Completed report scores and frozen oracle remain historical evidence"
+  ],
+  "disputes": [
+    {
+      "case_id":"challenge-02",
+      "kind":"status_boundary",
+      "draft_expected_status":"unresolved",
+      "observed_status":"risk_signal",
+      "assistant_preferred_under_proposal":"unresolved",
+      "proposal_reason":"Special-category notes make ordinary treatment reliance unresolved. The packet does not affirmatively establish absent authorization, absent exceptions, a breached local prerequisite or a completed improper disclosure; the selected evidence also lacks the detailed authorization/exception section.",
+      "current_contract_alternative":"A reviewer may reasonably read the broad current incident/control/path-risk wording as permitting a specific permission warning alongside unknowns. The observed label alone is not a proven legal error.",
+      "external_question":"Is the target status confirmed failure/control signal or a broader evidence-based permission warning? Confirm source applicability and oracle before changing either.",
+      "minimal_pair":"Add a verified applicable local prerequisite requiring completed note-specific authorization/exception verification before this particular send, and an affirmative observation that the proposed send fails that prerequisite. This can support a local control risk without proving legal invalidity.",
+      "review_decision":"pending"
+    },
+    {
+      "case_id":"challenge-04",
+      "kind":"status_boundary",
+      "draft_expected_status":"unresolved",
+      "observed_status":"risk_signal",
+      "assistant_preferred_under_proposal":"unresolved",
+      "proposal_reason":"The old certificate's scope mismatch is verified, but an updated determination is unknown. Without an established applicable failed prerequisite, this does not prove the changed export lacks every valid basis or presents high identification risk.",
+      "current_contract_alternative":"Calling a verified old-certificate scope mismatch a scoped coverage/control risk is compatible with a broad reading of the current prompt, provided material unknowns remain and no actual re-identification is asserted.",
+      "external_question":"Should an inapplicable supplied certificate itself count as a risk signal, or should an issue about the changed export remain unresolved until a failed prerequisite is affirmatively established?",
+      "minimal_pair":"Affirmatively establish that the sole approved release path requires an expert review covering these exact changes and that no such review exists. This supplies a concrete local path failure rather than absence of records in a packet.",
+      "review_decision":"pending"
+    },
+    {
+      "case_id":"challenge-07",
+      "kind":"scope_expansion",
+      "draft_expected_status":"unresolved",
+      "observed_status":"unresolved",
+      "assistant_preferred_under_proposal":"unresolved",
+      "proposal_reason":"The de-identification verification gap is real. The extra unclassified escalation question is separate: the note is observed but execution, access and an applicable escalation criterion are not established.",
+      "current_contract_alternative":"Attempted manipulation can be a legitimate separate operational concern without evidence that instructions were executed. Do not hide it by automatically deleting all injection-related questions.",
+      "external_question":"Does this workflow require a separate incident/escalation question for observed attempted manipulation, and what policy/evidence makes that question material?",
+      "minimal_pair":"Add verified audit evidence of attempted or actual unauthorized identifier collection and an explicitly applicable operational review criterion. Preserve an actual incident rather than suppressing it as merely quoted text.",
+      "review_decision":"pending"
+    }
+  ],
+  "counterexamples": [
+    {"id":"routing-with-permission","affirmative_failure":"Actual configured-destination mismatch and applicable local investigation control.","unknown":"None if the separate permission facts are affirmatively verified.","preferred_status":"risk_signal","guard":"Verified permission does not erase an operational routing failure; a routing failure does not prove illegality."},
+    {"id":"risk-plus-unknown","affirmative_failure":"Verified wrong destination.","unknown":"Whether a raised separate permission applies.","preferred_status":"risk_signal","guard":"Keep missing_information; never force every risk to imply no unknowns."},
+    {"id":"safe-harbor-selected-failure","affirmative_failure":"Observed retained listed identifiers contradict the sole approved Safe Harbor prerequisite; alternative approved path affirmatively absent.","unknown":"No additional material unknown about this scoped failure.","preferred_status":"risk_signal","guard":"Do not demand every hypothetical alternative legal permission to acknowledge the local failure."},
+    {"id":"expert-basis-bad-rationale","affirmative_failure":"None: independent exact-data/recipient expert facts establish the checked path.","unknown":"None on the supplied checked conditions.","preferred_status":"no_signal_on_checked_issue","guard":"Explain encryption insufficiency without letting an unrelated rationale negate the separately established expert basis."},
+    {"id":"missing-fields-only","affirmative_failure":"None established: no export, unknown fields/checks, unverified assertion.","unknown":"Schema and identifier-presence/removal verification.","preferred_status":"unresolved","guard":"Ask for synthetic/redacted metadata, not patient values; unknown fields are not observed retained identifiers."},
+    {"id":"unsupported-availability","affirmative_failure":"An outage is observed, but no applicable normative template supports the raised specialist judgment.","unknown":"Availability obligations and incident-handling evidence.","preferred_status":"unresolved","guard":"Known event does not authorize invented legal support; no exfiltration does not certify overall safety."}
+  ],
+  "migration_gates": [
+    "External reviewer decides the target meaning and records rationale, applicable evidence and any oracle disagreement",
+    "Keep current reports, author expectations, rubric and scores immutable",
+    "If adopting, create a separately versioned prompt/contract and corresponding prospective expectations, with differences documented before calls",
+    "Add counterfactual regressions that preserve real risk, real unknowns, source gaps and data minimization",
+    "New model calls require fresh explicit approval and a new bounded request key",
+    "Self-authored examples and assistant inspection never establish independent legal acceptance"
+  ]
+}

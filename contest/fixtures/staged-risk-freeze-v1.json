@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "suite": "staged-risk-smoke-v1",
+  "suite_fingerprint": "ff4d8bb0eea7018cdd885d1ea668050e30c0183c1bc0f394bc0adff75adfcad6",
+  "expectations_fingerprint": "eca28c3d3aea0955e15fd6d7429c00559ee23586b96c72914c8c2d5b78f3f566",
+  "contract_hash": "a3fada0771296b7fd57f0bc6725cd7a03ca2bab7be0ab414569f73e61b85b60d",
+  "source_agent_id": "agent-22B0192D-C8BC-11F1-9A39-5AE002CA47C9",
+  "source": {
+    "revision": 3,
+    "config_hash": "57de0a330cdc37333dcb7469790e4a43ace9081f94c80d3155fba905f27cd3ea",
+    "index_version": 7,
+    "corpus": "77d68e2d4c086e62c2b5af0d49c2dcb548b62d7027626468b3322c29b05f86c8"
+  },
+  "source_text_sha256": {
+    "45 CFR 164.502": "f55df933c918ef5fefd2899bb40e8d8b4f0d340aa39254faeec8960a2de3b91d",
+    "45 CFR 164.506": "b6cd107f4a6e99bdc615df33883cc6b4692885976016e39136d863b642bac568",
+    "45 CFR 164.514": "40bfd6603e61749a915b5a1787e577bb25ca2cab9ab82843183ed95eac928b57"
+  },
+  "maximum_proposed_model_requests": 12,
+  "model_execution_authorized": false,
+  "limitations": [
+    "Author-written synthetic development set, not held-out or independently reviewed",
+    "Complete selected snapshot text is not complete legal applicability or current-law coverage",
+    "No provider calls, legal acceptance or business actions authorized by this freeze"
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "suite": "staged-risk-challenge-v1",
+  "runtime_version": "staged-risk-v3",
+  "contract_hash": "041bf4feb6b9667e581dd703c9368adb3bb55e223413a5e9e627ca56b4077238",
+  "baseline_freeze_fingerprint": "391db762a3ab518e1cd9f7db484a7ecac64747c65626ecf88a4dad6ab2f7e1d2",
+  "suite_fingerprint": "989a8cefd43c65fcb4b3361e7a9faac1f8099200208d7517b886939879fb2b1d",
+  "expectations_fingerprint": "cdb083d0cd1f31d9f69e125204f486d38969c10d7b73ce5f200e7717fa9f8543",
+  "rubric_fingerprint": "10d9a06ce442664f48e1516cbdf420d75ffcff7c3d382698770a54eb4b810fee",
+  "runtime_source_sha256": {
+    "src/RiskReview.cls": "f5774d6a949edd5c3e0f3d4fd5ca25f9962faa022e8f812529b673bdc4190edc",
+    "src/RiskReviewV2.cls": "63e61a10fc8503b50bb01e80fea4ad1c39a12e3751947dce815c25ca8a066eae",
+    "src/RiskReviewV3.cls": "bc7de3f8073471c01bb5edaa87e3f5371c4cfddffbad6759941470f701f24a6c",
+    "src/RiskEvidence.cls": "45d50711f0c990b26d62838645e629432a4b49dbc31dfcc0b766db48ab73a124"
+  },
+  "maximum_proposed_model_requests": 16,
+  "model_execution_authorized": false,
+  "independent_review": "pending_external_author_or_reviewer",
+  "limitations": [
+    "Assistant-authored prospective challenge set after freezing v3, not independently authored or legally reviewed",
+    "No Chat execution path in the acceptance preparation CLI",
+    "Free source preparation and blank review worksheets are not semantic results",
+    "A future run needs separate explicit approval and a suite-aware bounded execution harness",
+    "Self-attested human review is not verified independence or legal certification"
+  ]
+}

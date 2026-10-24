@@ -25,6 +25,12 @@ Project Copilot Interop Skills adapt guidance from:
   Copyright (c) 2026 Pierre-Yves Duquesnoy, MIT License.
   See contest/dev/interop-skills-LICENSE.
 
+The web UI adapts selected components, sidebar behavior and theme tokens from:
+  https://github.com/satnaing/shadcn-admin
+  Revision e16c87f213a5ba5e45964e9b67c792105ec74d26
+  Copyright (c) 2024 Sat Naing, MIT License.
+  See web/LICENSE.shadcn-admin and web/README.md.
+
 The hipaa-demo-knowledge package contains attributed HHS/eCFR/NIST government-source
 evidence, project-authored LLM synthesis and a synthetic demonstration policy.
 It is not an HHS publication or legal advice. Extracted official materials are

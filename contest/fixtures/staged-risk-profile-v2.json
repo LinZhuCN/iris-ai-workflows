@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "runtime_version": "staged-risk-v2",
+  "base_contract_hash": "a3fada0771296b7fd57f0bc6725cd7a03ca2bab7be0ab414569f73e61b85b60d",
+  "contract_hash": "a305653fb3f84ea02e4ab7dc8b948afb82ccf72e8f75b51a7d4a427d44f7ab10",
+  "suite_fingerprint": "ff4d8bb0eea7018cdd885d1ea668050e30c0183c1bc0f394bc0adff75adfcad6",
+  "expectations_fingerprint": "eca28c3d3aea0955e15fd6d7429c00559ee23586b96c72914c8c2d5b78f3f566",
+  "change": "locator_prompt_only",
+  "model_execution_authorized": false,
+  "limitations": [
+    "No semantic output filter: extra model questions remain visible and affect aggregation",
+    "Strict object shape remains required; arrays are rejected, not repaired",
+    "No real-model result for this profile; prompt checks do not establish relevance quality",
+    "Frozen six cases remain known synthetic development regressions, not a held-out test"
+  ]
+}

@@ -1,0 +1,144 @@
+{
+  "schema": 1,
+  "suite": "hipaa-conditions-v1",
+  "classification": "prospective_assistant_authored_not_expert_validated",
+  "scope": "Privacy Rule condition testing on stipulated synthetic business evidence, not operational fact collection or legal certification",
+  "cases": [
+    {
+      "id": "condition-01",
+      "topic": "recipient_purpose",
+      "facts": [
+        {"id":"f1","kind":"observation","verification":"verified","origin":"synthetic_disclosure_record","text":"A HIPAA covered hospital disclosed ordinary patient records, including full birth dates, to an authenticated external health care provider for that provider's actual treatment of the patient. The destination and treatment purpose are independently verified. These records exclude psychotherapy notes and specially restricted material."},
+        {"id":"f2","kind":"observation","verification":"verified","origin":"synthetic_permission_review","text":"No additional restriction or applicable conflicting prohibition is present in this stipulated scenario. No individual authorization was obtained. Assess only the HIPAA treatment permission and minimum-necessary condition for this disclosure; no local year-only rule applies."}
+      ],
+      "oracle": {
+        "status": "no_signal_on_checked_issue",
+        "applicability": ["applicable","not_applicable"],
+        "condition_status": ["met","not_applicable"],
+        "critical_fact_ids": ["f1","f2"],
+        "authorities": [{"section":"45 CFR 164.502","clause":"164.502(b)(2)(i)","anchor":"Disclosures to or requests by a health care provider for treatment"},{"section":"45 CFR 164.506","clause":"164.506(c)(2)","anchor":"treatment activities of a health care provider"}],
+        "rationale": "The provider-treatment disclosure exception to minimum necessary is decisive; full dates alone are not a failure. Treatment permission does not require generic patient authorization.",
+        "must_not_claim": ["full dates alone violate HIPAA","minimum necessary applies without the treatment-disclosure exception"]
+      }
+    },
+    {
+      "id": "condition-02",
+      "topic": "recipient_purpose",
+      "facts": [
+        {"id":"f1","kind":"observation","verification":"verified","origin":"synthetic_disclosure_record","text":"A covered hospital disclosed separately maintained psychotherapy notes, as defined by 45 CFR 164.501, to another treating clinician who is not the originator of the notes. This is not ordinary encounter or medication information."},
+        {"id":"f2","kind":"observation","verification":"verified","origin":"synthetic_complete_authorization_audit","text":"A complete review affirmatively verifies that no individual authorization for these notes existed at disclosure. None of the psychotherapy-note exceptions in 164.508(a)(2) applies: no originator use, qualifying training, defense of a proceeding, Secretary disclosure, required-by-law, oversight, coroner or serious-threat circumstance. No other applicable prohibition or permission changes these stipulated facts."}
+      ],
+      "oracle": {
+        "status": "risk_signal",
+        "applicability": ["applicable"],
+        "condition_status": ["not_met"],
+        "critical_fact_ids": ["f1","f2"],
+        "authorities": [{"section":"45 CFR 164.508","clause":"164.508(a)(2)","anchor":"Psychotherapy notes"}],
+        "rationale": "Verified separately maintained notes and affirmative absence of authorization, with exceptions excluded, establish a failed applicable authorization condition despite ordinary treatment.",
+        "must_not_claim": ["ordinary treatment permission automatically covers psychotherapy notes"]
+      }
+    },
+    {
+      "id": "condition-03",
+      "topic": "recipient_purpose",
+      "facts": [
+        {"id":"f1","kind":"observation","verification":"verified","origin":"synthetic_disclosure_record","text":"A covered hospital disclosed separately maintained psychotherapy notes to a treating clinician other than the originator. These are psychotherapy notes as defined in 45 CFR 164.501, not ordinary records."},
+        {"id":"f2","kind":"missing_information","verification":"unknown","origin":"synthetic_incomplete_permission_evidence","text":"The authorization register and exception-specific evidence have not been supplied. Whether authorization existed, and whether any psychotherapy-note exception applied at disclosure, are unknown. This missing evidence does not establish absence of authorization."}
+      ],
+      "oracle": {
+        "status": "unresolved",
+        "applicability": ["applicable","unknown"],
+        "condition_status": ["unknown"],
+        "critical_fact_ids": ["f1","f2"],
+        "authorities": [{"section":"45 CFR 164.508","clause":"164.508(a)(2)","anchor":"Psychotherapy notes"}],
+        "rationale": "The special notes condition must be investigated, but no affirmative authorization failure has been established. Request the relevant authorization or applicable exception.",
+        "must_not_claim": ["missing authorization evidence proves that no authorization exists","treatment alone resolves the notes condition"]
+      }
+    },
+    {
+      "id": "condition-04",
+      "topic": "recipient_purpose",
+      "facts": [
+        {"id":"f1","kind":"observation","verification":"verified","origin":"synthetic_communication_audit","text":"A covered hospital used identifiable patient contact and diagnosis data to send electronic communications encouraging purchase of an unrelated company's product. The company paid the hospital specifically in exchange for making these communications. This is not face-to-face, a nominal promotional gift, a refill reminder or communication about the hospital's own services."},
+        {"id":"f2","kind":"observation","verification":"verified","origin":"synthetic_complete_permission_review","text":"The activity is marketing under 164.501. The complete authorization register affirmatively establishes that no individual authorization existed. No exception or alternative permission applies to this paid marketing use in the stipulated facts; calling it internal operations does not change the activity."}
+      ],
+      "oracle": {
+        "status": "risk_signal",
+        "applicability": ["applicable"],
+        "condition_status": ["not_met"],
+        "critical_fact_ids": ["f1","f2"],
+        "authorities": [{"section":"45 CFR 164.508","clause":"164.508(a)(3)","anchor":"marketing"}],
+        "rationale": "Paid marketing without the required authorization is not ordinary internal operations. The exact applicable marketing condition must be cited, not only a broad TPO paragraph.",
+        "must_not_claim": ["internal execution makes all marketing health care operations"]
+      }
+    },
+    {
+      "id": "condition-05",
+      "topic": "recipient_purpose",
+      "facts": [
+        {"id":"f1","kind":"observation","verification":"verified","origin":"synthetic_communication_audit","text":"A covered hospital used identifiable patient contact and diagnosis data for paid electronic communications encouraging purchase of an unrelated company's product. This is marketing under 164.501, not face-to-face or a nominal promotional gift."},
+        {"id":"f2","kind":"observation","verification":"verified","origin":"synthetic_valid_authorization_review","text":"Before this exact use, the individual signed a valid, unexpired, unrevoked authorization meeting every applicable 164.508 requirement, covering these data, this hospital's paid marketing use, purpose and time. It expressly states the hospital receives financial remuneration from the product company. Actual use stayed within that scope. No conflicting prohibition, extra disclosure, compound-authorization defect or other material gap is present in this stipulated scenario."}
+      ],
+      "oracle": {
+        "status": "no_signal_on_checked_issue",
+        "applicability": ["applicable"],
+        "condition_status": ["met"],
+        "critical_fact_ids": ["f1","f2"],
+        "authorities": [{"section":"45 CFR 164.508","clause":"164.508(a)(3)(ii)","anchor":"financial remuneration"}],
+        "rationale": "The specific valid authorization, including remuneration, satisfies this scoped paid-marketing condition. Marketing is not categorically prohibited.",
+        "must_not_claim": ["all paid marketing is prohibited even with valid applicable authorization"]
+      }
+    },
+    {
+      "id": "condition-06",
+      "topic": "recipient_purpose",
+      "facts": [
+        {"id":"f1","kind":"observation","verification":"verified","origin":"synthetic_business_activity_audit","text":"A covered hospital's own workforce used identifiable encounter data for its own internal quality assessment and improvement. Obtaining generalizable knowledge was not the primary purpose. There was no external disclosure, marketing or separately maintained psychotherapy notes."},
+        {"id":"f2","kind":"observation","verification":"verified","origin":"synthetic_minimum_necessary_audit","text":"An activity-specific review verifies the actual access was limited to workforce roles, data and records reasonably necessary for this exact quality task. Those necessity controls operated as documented; no broader access or use occurred in the stipulated observation. No individual authorization or de-identification was relied on, and no conflicting applicable restriction is present."}
+      ],
+      "oracle": {
+        "status": "no_signal_on_checked_issue",
+        "applicability": ["applicable"],
+        "condition_status": ["met"],
+        "critical_fact_ids": ["f1","f2"],
+        "authorities": [{"section":"45 CFR 164.501","clause":"164.501 health care operations","anchor":"quality assessment and improvement"},{"section":"45 CFR 164.506","clause":"164.506(c)(1)","anchor":"its own treatment, payment, or health care operations"}],
+        "rationale": "Own health care operations can permit this use with verified minimum-necessary conditions; PHI alone does not require de-identification or an individual authorization.",
+        "must_not_claim": ["every internal identifiable-data use requires individual authorization or Safe Harbor"]
+      }
+    },
+    {
+      "id": "condition-07",
+      "topic": "deidentification",
+      "facts": [
+        {"id":"f1","kind":"observation","verification":"verified","origin":"synthetic_complete_output_audit","text":"A covered hospital relies solely on the Safe Harbor method for this exact external release. The actual output retains original non-000 three-digit ZIP prefixes whose combined geographic units contain exactly 20,000 people under applicable current public Census data. They have not been changed to 000."},
+        {"id":"f2","kind":"observation","verification":"verified","origin":"synthetic_other_conditions_audit","text":"Every other 164.514(b)(2)(i) identifier condition is met, including relatives/employers/household identifiers, year-only dates and over-89 aggregation. The entity has no actual knowledge under 164.514(b)(2)(ii). No expert determination or alternative release basis is present. Assess Safe Harbor satisfaction, not a re-identification event or breach-notification duty."}
+      ],
+      "oracle": {
+        "status": "risk_signal",
+        "applicability": ["applicable"],
+        "condition_status": ["not_met"],
+        "critical_fact_ids": ["f1","f2"],
+        "authorities": [{"section":"45 CFR 164.514","clause":"164.514(b)(2)(i)(B)","anchor":"more than 20,000"}],
+        "rationale": "Exactly 20,000 is not greater than 20,000; the original non-000 prefixes must be transformed. This is a failed selected Safe Harbor condition, not proof of actual re-identification.",
+        "must_not_claim": ["exactly 20,000 satisfies greater than 20,000","failed Safe Harbor proves actual re-identification"]
+      }
+    },
+    {
+      "id": "condition-08",
+      "topic": "deidentification",
+      "facts": [
+        {"id":"f1","kind":"observation","verification":"verified","origin":"synthetic_complete_output_audit","text":"A covered hospital uses Safe Harbor for this exact external release. Each retained original three-digit ZIP prefix covers a combined geographic unit containing 20,001 people under applicable current public Census data. All units with 20,000 or fewer have been changed to 000. All other geography smaller than a state is removed."},
+        {"id":"f2","kind":"observation","verification":"verified","origin":"synthetic_other_conditions_audit","text":"A complete actual-output audit verifies removal or permitted transformation of every identifier in 164.514(b)(2)(i), including relatives/employers/household identifiers, year-only dates and the required over-89 aggregation. The entity has no actual knowledge that remaining information could identify an individual alone or in combination under 164.514(b)(2)(ii). These stipulated facts cover this exact output; no claim of universal zero re-identification risk is made."}
+      ],
+      "oracle": {
+        "status": "no_signal_on_checked_issue",
+        "applicability": ["applicable"],
+        "condition_status": ["met"],
+        "critical_fact_ids": ["f1","f2"],
+        "authorities": [{"section":"45 CFR 164.514","clause":"164.514(b)(2)(i)(B) and (ii)","anchor":"more than 20,000"},{"section":"45 CFR 164.514","clause":"164.514(b)(2)(ii)","anchor":"actual knowledge"}],
+        "rationale": "20,001 is greater than 20,000; all enumerated removals and actual-knowledge condition are stipulated satisfied. Judge scoped Safe Harbor, not universal anonymity.",
+        "must_not_claim": ["every three-digit ZIP is prohibited","Safe Harbor guarantees no possible re-identification"]
+      }
+    }
+  ]
+}

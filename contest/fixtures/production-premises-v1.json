@@ -1,0 +1,78 @@
+{
+  "schema": 1,
+  "suite": "production-premises-v1",
+  "classification": "prospective_assistant_authored_demo_acceptance",
+  "cases": [
+    {
+      "id": "treatment",
+      "premises": {
+        "recipient": "Synthetic external treating clinic",
+        "relationship": "another_provider",
+        "purpose": "A HIPAA covered hospital discloses ordinary patient records to this clinic for its actual treatment of the referred patient. The full birth date identifies the patient for treatment.",
+        "permission_basis": "treatment",
+        "permission_details": "No individual authorization exists and none is relied upon for this ordinary provider-treatment disclosure. These are not psychotherapy notes or specially restricted data. No local year-only policy applies to this scenario.",
+        "authorization_status": "not_relied_upon",
+        "safeguards": "Only the treating team has access. The specified data are for this treatment episode. The recipient and actual treatment relationship are established within this synthetic scenario.",
+        "exceptions": "No additional restriction, conflicting prohibition or other material business gap is stipulated. Assess treatment permission and the treatment-disclosure exception to minimum necessary.",
+        "confirmed": true
+      },
+      "oracle": {
+        "status": "no_signal_on_checked_issue",
+        "assessment": "no_signal_on_checked_issues",
+        "applicability": ["applicable", "not_applicable"],
+        "condition_status": ["met", "not_applicable"],
+        "critical_fact_ids": ["demo_recipient", "demo_purpose", "demo_permission"],
+        "authorities": [
+          {"section": "45 CFR 164.502", "clause": "164.502(b)(2)(i)", "anchor": "Disclosures to or requests by a health care provider for treatment"},
+          {"section": "45 CFR 164.506", "clause": "164.506(c)(2)", "anchor": "treatment activities of a health care provider"}
+        ]
+      }
+    },
+    {
+      "id": "marketing",
+      "premises": {
+        "recipient": "Synthetic external marketing communications processor",
+        "relationship": "business_associate",
+        "purpose": "A HIPAA covered hospital sends identifiable patient IDs and full birth dates to its contracted communications processor to select patients for paid electronic marketing of an unrelated company's product. The product company pays the hospital in exchange for these communications.",
+        "permission_basis": "other",
+        "permission_details": "This is marketing, not treatment or health care operations. No individual authorization exists for this exact use or disclosure. That absence is expressly established in this demo, not inferred from a missing record.",
+        "authorization_status": "absent",
+        "safeguards": "The processor has an effective agreement limiting access and use to the hospital's instruction, but no agreement substitutes for the individual's required marketing authorization. No other safeguard failure is stipulated.",
+        "exceptions": "No face-to-face communication, nominal promotional gift, refill reminder, own-service communication or other applicable exception/alternative permission. No specially restricted notes. No other material business fact is unknown.",
+        "confirmed": true
+      },
+      "oracle": {
+        "status": "risk_signal",
+        "assessment": "risk_identified",
+        "applicability": ["applicable"],
+        "condition_status": ["not_met"],
+        "critical_fact_ids": ["demo_purpose", "demo_permission"],
+        "authorities": [
+          {"section": "45 CFR 164.508", "clause": "164.508(a)(3)", "anchor": "marketing"}
+        ]
+      }
+    },
+    {
+      "id": "unknown",
+      "premises": {
+        "recipient": "Synthetic destination with business identity not established",
+        "relationship": "unknown",
+        "purpose": "The covered hospital's intended activity is unknown. Message hosts and data fields alone do not establish whether this use is treatment, operations or marketing.",
+        "permission_basis": "unknown",
+        "permission_details": "The applicable permission and individual authorization scope, validity and revocation have not been supplied. No absence of authorization or failure of permission is established.",
+        "authorization_status": "unknown",
+        "safeguards": "Actual business access and necessity conditions are unknown. Do not interpret unknown as a failed safeguard.",
+        "exceptions": "Applicable restrictions and exceptions are unknown until recipient and purpose are supplied.",
+        "confirmed": true
+      },
+      "oracle": {
+        "status": "unresolved",
+        "assessment": "information_required",
+        "applicability": ["applicable", "unknown"],
+        "condition_status": ["unknown"],
+        "critical_fact_ids": ["demo_recipient", "demo_permission"],
+        "authorities": []
+      }
+    }
+  ]
+}
