@@ -1,5 +1,7 @@
 # Agentic Dev MCP and Copilot Interop Skills
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 These are **development tools**, not the runtime AI Hub Agent. Runtime inference
 continues to use `%AI.Agent`, `%AI.ToolSet` and `%AI.Tool` inside the BP.
 

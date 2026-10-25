@@ -1,6 +1,7 @@
 # IRIS AI Hub Interoperability Workflows
 
-[English setup guide](./README.en.md) · [中文说明](./README.zh-CN.md)
+[English](./README.md) · [简体中文](./README.zh-CN.md) ·
+[Setup guide](./INSTALL.md) · [All documentation](./DOCUMENTATION.md)
 
 **Non-intrusive monitoring of inter-organization data exchanges for potential
 privacy and compliance risks.**
@@ -127,7 +128,7 @@ image selection, credentials, real-provider configuration and troubleshooting.
 Follow these guides in order; do not treat an existing acceptance journal as
 a fresh-install fixture:
 
-1. [Real runtime setup](./README.en.md#real-model-runtime).
+1. [Real runtime setup](./INSTALL.md#real-model-runtime).
 2. [Knowledge API and local embedding setup](./contest/KNOWLEDGE.md).
 3. [Production monitoring infrastructure](./contest/MONITORING.md).
 4. [M5 prerequisites, source installation and live steps](./contest/M5-ONBOARDING-DEMO.md).
@@ -206,7 +207,7 @@ interpretation or later recipient behavior.
 | Review and evidence | [Production monitoring](./contest/MONITORING.md) · [Knowledge API](./contest/KNOWLEDGE.md) |
 | Additional workflows | [Agent factory](./contest/AGENT-FACTORY.md) · [declarations](./contest/DECLARATION-WORKFLOW-PLAN.md) |
 | Contest materials | [Article draft](./contest/CONTEST-ARTICLE.md) · [submission checklist](./contest/CONTEST-SUBMISSION.md) |
-| Development | [Agentic Dev and Skills](./contest/dev/README.md) · [research notes](./contest-knowledge/README.md) |
+| Development | [Agentic Dev and Skills](./contest/dev/README.md) |
 
 Agentic Dev MCP and Interop Skills assist development; they are not the runtime
 business Agent. Article publication, video, clean-machine full-demo rehearsal
@@ -218,7 +219,6 @@ and actual contest submission are separate release tasks.
   and workflow documentation.
 - [web/](./web/): React/TypeScript demonstration UI.
 - [hipaa-demo-knowledge/](./hipaa-demo-knowledge/): published prepared corpus.
-- [contest-knowledge/](./contest-knowledge/): development research and evidence.
 
 Forked from [zlnick/DataPipelineDemo](https://github.com/zlnick/DataPipelineDemo).
 This fork adds runtime AI Hub decisions, independent Production observation,

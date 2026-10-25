@@ -1,5 +1,7 @@
 # M2 local recipients
 
+[English](./README.md) | [简体中文](./README.zh-CN.md)
+
 These are three logically isolated synthetic recipients, not independent
 organizations or a compliance decision engine. No provider/model is called.
 

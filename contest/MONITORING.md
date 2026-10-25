@@ -1,5 +1,7 @@
 # Production monitoring and the legacy DEMO Connector
 
+**Languages:** English | [简体中文](./MONITORING.zh-CN.md)
+
 For the fixed live **organizations → first enrollment → new message → AI audit**
 presentation, use [the M5 onboarding demo](./M5-ONBOARDING-DEMO.md)
 ([中文](./M5-ONBOARDING-DEMO.zh-CN.md)) at

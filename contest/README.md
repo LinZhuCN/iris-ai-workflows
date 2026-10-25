@@ -1,5 +1,7 @@
 # AI Hub message triage (isolated EAP demo)
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 This fork adds a runtime AI Hub decision to an IRIS Interoperability Production.
 The inherited application stack has been removed from this fork's current tree;
 the root Compose entry now includes this isolated deployment. The upstream
@@ -315,7 +317,7 @@ Verified using a completely new data directory, not the original probe's
   provider: all three routes, actual fact tools, AI Hub sessions, usage and
   restart-persistence checks passed.
 
-See the [acceptance record](../contest-knowledge/Minimal-workflow-acceptance-2026-10-15.md).
+See the acceptance results and limitations documented above.
 This completes the minimal terminal-driven demo acceptance, not production or
 contest-release certification. Operator resolution UI, external delivery,
 load/concurrency/crash-recovery testing, whole-loop token/cost accounting,

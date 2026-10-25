@@ -1,5 +1,7 @@
 # Multi-organization FHIR distribution demo
 
+[English](./MULTI-ORGANIZATION-DEMO.md) | [简体中文](./MULTI-ORGANIZATION-DEMO.zh-CN.md)
+
 This local synthetic demo reads an IRIS FHIR R4 Patient, transforms it into
 three different representations and delivers them to three independently
 stored simulated institutions in the same IRIS instance.

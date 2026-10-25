@@ -7,6 +7,8 @@
 
 **Project:** [IRIS AI Hub Interoperability Workflows](https://github.com/LinZhuCN/iris-ai-workflows)
 
+**Language:** English · [简体中文](./CONTEST-ARTICLE.zh-CN.md)
+
 **Live walkthrough:** [English](./M5-ONBOARDING-DEMO.md) ·
 [中文](./M5-ONBOARDING-DEMO.zh-CN.md)
 
@@ -338,6 +340,4 @@ Three previous entries offered useful examples of explaining technical work:
   connect user-facing AI interactions to visible Production internals.
 
 They are inspirations for presentation, not implementations claimed as our
-work or proof that a particular article format wins a contest. The
-[research notes](../contest-knowledge/Contest-winner-writing-research-2026-10-25.md)
-link their Open Exchange listings, public code and official award results.
+work or proof that a particular article format wins a contest.

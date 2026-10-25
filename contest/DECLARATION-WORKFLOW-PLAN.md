@@ -1,5 +1,7 @@
 # Declaration-to-monitoring demo: design and development plan
 
+[English](./DECLARATION-WORKFLOW-PLAN.md) | [简体中文](./DECLARATION-WORKFLOW-PLAN.zh-CN.md)
+
 ## Goal and acceptance boundary
 
 A user creates a new data-use declaration. An AI Hub Agent evaluates the

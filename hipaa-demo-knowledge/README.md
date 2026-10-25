@@ -1,5 +1,7 @@
 # HIPAA demonstration knowledge
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 The release ships the complete prepared text corpus, approximately **23 MB of
 UTF-8 text**, rather than the former 2 MB selected subset. The original PDFs,
 HTML snapshots, extraction intermediates and other binary sources remain under

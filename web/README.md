@@ -1,5 +1,7 @@
 # IRIS Workflows local demonstration UI
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 For the main live presentation, see the
 [M5 onboarding walkthrough](../contest/M5-ONBOARDING-DEMO.md):
 enter institutions, enroll the Production, send new synthetic data and authorize

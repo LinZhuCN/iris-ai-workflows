@@ -1,6 +1,7 @@
 # Installation and demo entry points
 
-[Project overview](./README.md) · [中文说明](./README.zh-CN.md)
+[English](./INSTALL.md) · [简体中文](./INSTALL.zh-CN.md) ·
+[Project overview](./README.md) · [All documentation](./DOCUMENTATION.md)
 
 This project monitors inter-organization data exchanges for potential privacy
 and compliance risks without changing the observed Production's business flow.

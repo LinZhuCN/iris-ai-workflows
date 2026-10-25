@@ -1,5 +1,7 @@
 # Local embeddings and the Knowledge API
 
+[English](./KNOWLEDGE.md) | [简体中文](./KNOWLEDGE.zh-CN.md)
+
 This optional platform slice uses the AI Hub EAP RAG SDK and local CPU inference,
 not a hosted embedding API. The message-triage Agent is unchanged and does not
 yet use this corpus. The separate [privacy Agent factory](./AGENT-FACTORY.md)

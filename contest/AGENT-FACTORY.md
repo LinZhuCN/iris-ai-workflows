@@ -1,5 +1,7 @@
 # Privacy Agent factory (P4 slice)
 
+[English](./AGENT-FACTORY.md) | [简体中文](./AGENT-FACTORY.zh-CN.md)
+
 The **Agents** page at <http://127.0.0.1:5173/agents> uses real IRIS APIs,
 persisted versions and `%AI.Agent` calls. It is not the earlier configuration
 fixture. This slice supports one bounded `privacy_review` template, not arbitrary

@@ -1,5 +1,7 @@
 # Multi-organization FHIR distribution and advisory audit plan
 
+[English](./MULTI-ORGANIZATION-DEMO-PLAN.md) | [简体中文](./MULTI-ORGANIZATION-DEMO-PLAN.zh-CN.md)
+
 Status: M0-M6 implemented and validated in the owned local EAP environment.
 See [setup and browser instructions](./MULTI-ORGANIZATION-DEMO.md).
 

@@ -1,5 +1,7 @@
 # Production HIPAA 风险审核演示指南
 
+**语言：** [English](./DEMO-GUIDE.md) · 简体中文
+
 **当前现场完整演示请使用：[M5 从纳管到审计操作指引](./M5-ONBOARDING-DEMO.zh-CN.md)。**
 固定对象为 `M5OBSERVATION / Contest.M5.Production`，从录入机构到现场触发和审核，
 不以历史报告回放替代。本页后续多机构和编号案例保留为历史参考；
@@ -417,7 +419,7 @@ namespace，不要在 `TRIAGE` 中寻找 `M5OBSERVATION` 的业务消息。
 
 ## 9. 相关说明
 
-- [英文固定演示路线](./DEMO-WALKTHROUGH.md)
+- [另一份英文演示脚本（保留历史编号案例）](./DEMO-WALKTHROUGH.md)
 - [实现状态、证据边界及 M5 验收记录](./MONITORING.md#m5-approval-input-live-acceptance-and-explicit-repair)
 - [安装与运行指南](./README.md)
 - [前端运行与登录说明](../web/README.md)

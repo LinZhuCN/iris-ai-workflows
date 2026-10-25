@@ -6,7 +6,9 @@ The numbered records below are historical acceptance references. A scoped M5
 reset archives their old monitoring view, so do not require them to appear in
 the current Production review list or replay the old paid harness to restore it.
 
-[Chinese operations guide with system URLs and step-by-step highlights](./DEMO-GUIDE.zh-CN.md)
+**Language:** English · [简体中文](./DEMO-WALKTHROUGH.zh-CN.md)
+
+[Separate Chinese operations guide with system URLs and step-by-step highlights](./DEMO-GUIDE.zh-CN.md)
 
 ## What this demonstration shows
 

@@ -1,6 +1,6 @@
 # Live M5 Production onboarding demonstration
 
-[Chinese instructions](./M5-ONBOARDING-DEMO.zh-CN.md)
+[English](./M5-ONBOARDING-DEMO.md) · [简体中文](./M5-ONBOARDING-DEMO.zh-CN.md)
 
 ## Fixed demonstration
 
@@ -110,6 +110,19 @@ consent. It never allocates another message or replacement budget.
 10. **Conclude.** The audit occurred after delivery. It did not prevent
     disclosure, rewrite the Production, replay a message or certify compliance.
     Human event notes and review transitions are available in Productions.
+
+### Suggested narration
+
+- Profiles establish business premises within this demo, not official law or
+  a prewritten model conclusion. Saving, not filling the form, creates a version.
+- The observation unit is the entire Production; no per-flow registration or
+  business restart is required.
+- Header observation and body inspection have separate authorization.
+  Inspection neither calls AI nor backfills old bodies.
+- A missing capture, missing audit or failure must never be described as
+  "no risk." Show Result / Why / Next before opening technical details.
+- The example is not based on writing "no individual authorization" as a
+  predetermined answer. It tests the actual field/release-path contradiction.
 
 ## Reset and evidence boundaries
 

@@ -21,6 +21,7 @@ __pycache__/
 *.out
 
 # Personal knowledge and local agent state
+/contest-knowledge/
 knowledge/
 AGENTS.md
 WORKLOG.md

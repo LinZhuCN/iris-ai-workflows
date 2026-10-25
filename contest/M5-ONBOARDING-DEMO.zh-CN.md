@@ -1,6 +1,6 @@
 # M5 Production 从纳管到审计：现场演示指引
 
-[English instructions](./M5-ONBOARDING-DEMO.md)
+[English](./M5-ONBOARDING-DEMO.md) · [简体中文](./M5-ONBOARDING-DEMO.zh-CN.md)
 
 ## 固定对象与演示主线
 
@@ -33,17 +33,21 @@ python3 contest/m5_demo.py --install
 
 此命令不发送业务消息，也不调用模型。完整环境要求见
 [英文安装说明](./README.md)和[监控说明](./MONITORING.md)。
+本地工作区认证也必须可用。若本项目拥有的 M5 基础流程尚未配置，
+使用 [M5 验证程序](./production_acceptance_test.py) 中明确的 `setup()` 实现；
+不要仅为安装新 UI 而运行其付费验收。
 
 开发时做一次完整验收，然后重置为现场演示起点：
 
 ```sh
-# 限定一次合成发送，最多两次真实模型请求；不覆盖已有验收记录。
+# Archives M5 logical state, sends ONE synthetic message, funds at most TWO
+# model requests. Refuses an existing acceptance journal.
 python3 contest/m5_demo.py --run
 
-# 只读检查实际保存的验收报告；重置后也可验证。
+# Read-only: verify the saved real report, even after logical reset.
 python3 contest/m5_demo.py --check
 
-# 仅归档并重置固定 M5 演示的逻辑状态。
+# Archive/reset only the fixed M5 demonstration to a clean logical start.
 python3 contest/m5_demo.py --reset
 ```
 
@@ -51,7 +55,10 @@ python3 contest/m5_demo.py --reset
 结果是选定 Safe Harbor 路径的风险信号。测试中在付费调用前修复了草稿 Agent
 筛选和 JSON 布尔类型问题，继续使用同一条消息和同一份授权，没有另买一次重试。
 SDK 共记录 43,626 tokens，并非已核实的供应商账单。
+其中 prompt 为 28,912，completion 为 14,714。
 验收明细保存在不入 Git 的本地数据目录。
+`--resume` 仅对保留的同一次已投递尝试及其精确授权进行核对，
+不会分配另一条消息或替代预算。开发验收不是每次启动演示的前提。
 
 ## 现场操作
 
@@ -105,6 +112,7 @@ SDK 共记录 43,626 tokens，并非已核实的供应商账单。
 
 如需追溯，在 Productions 查看 Observed message edges、会话关联和事件。
 刷新不会再次发送消息。未采集、未审核或失败，都不能说成“没有风险”。
+确认采集状态实际为 `captured`，不能只凭接收 Header 判定。
 
 ### 7. 授权 AI 审计
 
@@ -118,6 +126,7 @@ SDK 共记录 43,626 tokens，并非已核实的供应商账单。
 - 30 分钟有效期；
 - 仅适用于当前运行的源会话，不为其他会话提供额度。
 
+失败或已预留的请求不会自动获得补偿额度。
 审核使用本次发送时冻结的机构档案，不需要重新填写一遍业务背景。
 发送后修改表单不会改写本次运行的机构版本。
 
@@ -162,3 +171,7 @@ SDK 共记录 43,626 tokens，并非已核实的供应商账单。
 
 因此，“干净起点”是演示工作区的逻辑起点，不是销毁测试证据。
 每次重置后使用新的运行 ID，界面自动生成，不手工复用旧消息编号。
+原验收报告在重置后仍可只读验证；下次纳管从当前 Header/日志游标开始。
+相同 ID 的重复发送返回已保存的尝试，不会重放业务。
+不确定的审查提交可使用保存的精确授权显式核对，
+不能通过新建身份静默购买重试。

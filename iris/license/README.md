@@ -1,5 +1,7 @@
 # Local IRIS license key
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 Place your locally obtained InterSystems license key here as `iris.key`:
 
 ```text

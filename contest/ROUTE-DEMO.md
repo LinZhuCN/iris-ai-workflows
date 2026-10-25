@@ -1,5 +1,7 @@
 # Internal hospital route demo
 
+[English](./ROUTE-DEMO.md) | [简体中文](./ROUTE-DEMO.zh-CN.md)
+
 The current route demo follows **organization policy -> project approval ->
 observed behavior**. It replaces the earlier P5/P6 trial records, rather than
 presenting multiple historical attempts as the current demonstration.

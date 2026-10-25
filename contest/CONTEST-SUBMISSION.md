@@ -3,8 +3,10 @@
 Editorial draft, October 25, 2026. This document prepares copy; it does not
 create an Open Exchange listing or submit the application. Organizer approval
 and any Freshmen eligibility remain separate determinations.
-The [previous-entry research notes](../contest-knowledge/Contest-winner-writing-research-2026-10-25.md)
-record the verified examples and the specific presentation choices adopted.
+**Language:** English · [简体中文](./CONTEST-SUBMISSION.zh-CN.md)
+
+The [article's related reading](./CONTEST-ARTICLE.md#reading-that-shaped-the-presentation)
+identifies the previous entries that informed the presentation.
 
 ## Application name
 
