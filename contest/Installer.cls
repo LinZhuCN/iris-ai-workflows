@@ -28,6 +28,12 @@ ClassMethod Run()
             Set p("Directory") = directory
             Set sc = ##class(Config.Databases).Create("TRIAGE",.p) $$$ThrowOnError(sc)
         }
+        If '##class(Security.Resources).Exists("%DB_TRIAGE") {
+            Set sc = ##class(Security.Resources).Create("%DB_TRIAGE","Isolated contest runtime database",0) $$$ThrowOnError(sc)
+        }
+        Set db = ##class(SYS.Database).%OpenId(directory)
+        Set db.ResourceName = "%DB_TRIAGE"
+        Set sc = db.%Save() $$$ThrowOnError(sc)
         If '##class(Config.Namespaces).Exists("TRIAGE") {
             Kill p
             Set p("Globals") = "TRIAGE", p("Routines") = "TRIAGE"

@@ -40,6 +40,9 @@ Provider 是本地合成 mock；AI Hub SDK、事实 ToolSet、BP 策略检查、
 [运行时指南](./contest/README.zh-CN.md)解释镜像配置、初始凭据、
 预期行为和排障，不需要患者数据。
 
+启动安装器会为 TRIAGE 数据库配置专用的 `%DB_TRIAGE` 安全资源，供可选的知识 API
+角色使用。运行时和知识 API 不依赖开发 MCP 账户的安装。
+
 ## 真实模型运行时
 
 参考 [.env.example](./.env.example) 填写被忽略的根目录 `.env`。

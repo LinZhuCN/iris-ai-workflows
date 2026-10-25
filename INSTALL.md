@@ -43,6 +43,10 @@ sign in with your IRIS administrator identity and select **TRIAGE**.
 The [runtime guide](./contest/README.md) explains image configuration, initial
 credentials, expected behavior and troubleshooting. No patient data is needed.
 
+Startup assigns the TRIAGE database its dedicated `%DB_TRIAGE` security
+resource, which the optional Knowledge API roles require. Installing the
+development MCP account is not a prerequisite for the runtime or Knowledge API.
+
 ## Real-model runtime
 
 Populate an ignored root `.env` using [.env.example](./.env.example).
